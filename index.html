@@ -755,9 +755,18 @@ function render(){
       v=>{ r.so=v.trim(); commit(); },                    // per keystroke: no re-render
       v=>{                                               // on blur: fill the client if known
         r.so=v.trim();
-        if(!r.client){ const c=clientForSo(r.so); if(c) r.client=c; }
-        commit(true);
-      }), "S/O#"));
+        if(!r.client){
+          const c=clientForSo(r.so);
+          if(c){
+            r.client=c;
+            const inp=tr.children[5].querySelector("input");   // update in place…
+            if(inp) inp.value=c;
+          }
+        }
+        tr.classList.toggle("filled", rowUsed(r));
+        commit();                                        // …never re-render: this fires as
+      }), "S/O#"));                                      // focus leaves, and a rebuild would
+                                                         // destroy the cell just moved to
 
     const tp = document.createElement("td");
     tp.className="tp"; tp.dataset.label="TP";
