@@ -432,6 +432,7 @@
       <li><b>Editing:</b> arriving at a cell selects it, so typing replaces what's there.
           Press <b>F2</b> (or <b>End</b>) to put the cursor in the text and edit it instead.
           In a dropdown, type the first letter or press <b>Alt+&darr;</b> to open the list.</li>
+      <li><b>Escape</b> puts the row back to how it was when you moved into it.</li>
     </ul>
   </div>
 </div>
@@ -806,6 +807,7 @@ function goto(date){
   save(true);
   current=date;
   openWeeks.add(weekStart(date));            // keep the week you jump to expanded
+  rowSnap=null;                              // snapshots don't carry across days
   day=getDay(date,true);
   render();
 }
@@ -837,6 +839,19 @@ function moveTo(el){
   if(el.tagName==="INPUT" && el.select) el.select();      // ready to overtype, as Excel does
   return true;
 }
+/* Snapshot a row as you arrive in it, so Escape can put it back. Taken on
+   focus for mouse entry, and again on the first keystroke in a row — keydown
+   runs before the value changes, so it still catches the pre-edit state. */
+let rowSnap = null;                          // {i, row}
+function snapRow(i){
+  if(i<0 || !day.rows[i]) return;
+  if(!rowSnap || rowSnap.i!==i) rowSnap={i, row:JSON.parse(JSON.stringify(day.rows[i]))};
+}
+$("#rows").addEventListener("focusin", e=>{
+  const tr=e.target.closest && e.target.closest("tr");
+  if(tr) snapRow([...tr.parentNode.children].indexOf(tr));
+});
+
 $("#rows").addEventListener("keydown", e=>{
   const el=e.target;
   if(!el.matches || !el.matches("input,select,button")) return;
@@ -851,6 +866,19 @@ $("#rows").addEventListener("keydown", e=>{
   const whole = isText && el.value.length>0 &&
                 el.selectionStart===0 && el.selectionEnd===el.value.length;
   let target=null;
+
+  /* Escape puts the row back to how it was when you moved into it. */
+  if(e.key==="Escape"){
+    if(!$("#refWrap").hidden) return;       // the popup gets it first
+    if(rowSnap && rowSnap.i===ri && day.rows[ri]){
+      day.rows[ri]=JSON.parse(JSON.stringify(rowSnap.row));
+      commit(true);
+      toast("Row reverted");
+      e.preventDefault();
+    }
+    return;
+  }
+  snapRow(ri);                              // first key in this row: capture it pre-edit
 
   /* F2 drops into the value without wiping it, as in Excel: caret to the end
      of a text cell, open the list on a dropdown. */
