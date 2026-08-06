@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Time Sheet — Professional Services Team</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#fff; --ink:#1c1e21; --muted:#6b7280; --line:#d8dbe0;
+    --accent:#c8102e; --accent-dk:#9c0c24; --head:#efeff2; --ok:#e8f6ec; --ip:#fff6e0; --wfp:#fdecec;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font:13px/1.4 "Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+    background:var(--bg); color:var(--ink);
+  }
+  button{font:inherit;cursor:pointer}
+
+  /* ---------- app chrome ---------- */
+  #app{display:flex;min-height:100vh;align-items:flex-start}
+  #side{
+    width:250px;flex:0 0 250px;background:var(--panel);border-right:1px solid var(--line);
+    padding:12px;position:sticky;top:0;height:100vh;overflow-y:auto
+  }
+  #main{flex:1;padding:16px 20px 60px;min-width:0}
+  .brand{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+  .brand img{width:34px;height:auto}
+  .brand b{font-size:13px;letter-spacing:.02em}
+  .brand span{display:block;font-size:11px;color:var(--muted);font-weight:400}
+
+  .sec{margin-bottom:16px}
+  .sec>h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .btn{
+    display:block;width:100%;text-align:left;padding:6px 9px;margin-bottom:4px;border:1px solid var(--line);
+    background:#fff;border-radius:5px;color:var(--ink)
+  }
+  .btn:hover{background:#f0f1f4}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:var(--accent-dk)}
+  .btn.danger:hover{background:#fdecec;border-color:#f0b4b4}
+  .row2{display:flex;gap:4px}
+  .row2 .btn{margin-bottom:4px}
+
+  #dayList{max-height:230px;overflow-y:auto;border:1px solid var(--line);border-radius:5px}
+  .dayItem{display:flex;justify-content:space-between;gap:6px;padding:5px 8px;border-bottom:1px solid #eceef1;cursor:pointer}
+  .dayItem:last-child{border-bottom:0}
+  .dayItem:hover{background:#f0f1f4}
+  .dayItem.on{background:#fdeef1;box-shadow:inset 3px 0 0 var(--accent)}
+  .dayItem small{color:var(--muted)}
+  .empty{padding:10px;color:var(--muted);text-align:center;font-size:12px}
+
+  .wk{width:100%;border-collapse:collapse;font-size:12px}
+  .wk td{padding:2px 4px;border-bottom:1px solid #eef0f2}
+  .wk td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+  .wk tr.tot td{font-weight:700;border-top:1px solid var(--line);border-bottom:0}
+  .wk tr.today td{background:#fdeef1}
+
+  /* ---------- sheet ---------- */
+  .sheet{
+    background:#fff;border:1px solid var(--line);border-radius:6px;padding:14px 16px 18px;
+    max-width:1000px;box-shadow:0 1px 3px rgba(0,0,0,.06)
+  }
+  .sheetHead{display:flex;align-items:flex-start;gap:16px;border-bottom:2px solid var(--accent);padding-bottom:10px;margin-bottom:12px}
+  .sheetHead .ttl{flex:1;text-align:center}
+  .sheetHead .ttl h1{margin:0;font-size:19px;letter-spacing:.01em}
+  .sheetHead .ttl p{margin:2px 0 0;font-size:11px;color:var(--muted)}
+  .sheetHead img{width:56px;height:auto}
+  .logoSpacer{width:56px}
+
+  .meta{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-end}
+  .fld{display:flex;align-items:center;gap:6px}
+  .fld label{font-weight:600;font-size:12px;white-space:nowrap}
+  .fld input[type=text],.fld input[type=date]{
+    border:0;border-bottom:1px solid var(--line);padding:3px 4px;font:inherit;background:transparent;min-width:150px
+  }
+  .fld input:focus{outline:none;border-bottom-color:var(--accent)}
+  .ro{border:0;border-bottom:1px solid var(--line);padding:3px 4px;min-width:90px;color:#333;background:#fafafa;font-variant-numeric:tabular-nums}
+
+  table.grid{width:100%;border-collapse:collapse;table-layout:fixed}
+  table.grid th{
+    background:var(--head);border:1px solid var(--line);padding:5px 6px;font-size:12px;text-align:left
+  }
+  table.grid td{border:1px solid var(--line);padding:0;height:24px}
+  table.grid td.n{text-align:right;padding-right:6px;font-variant-numeric:tabular-nums}
+  table.grid input,table.grid select{
+    width:100%;border:0;background:transparent;font:inherit;padding:3px 5px;color:inherit
+  }
+  table.grid input:focus,table.grid select:focus{outline:2px solid #b9c6f5;outline-offset:-2px;background:#fbfcff}
+  td.tp{text-align:center;cursor:pointer;user-select:none;font-weight:700;color:var(--accent)}
+  td.tp:hover{background:#f6f7f9}
+  tr.filled td{background:#fff}
+  tr.break td{background:#fafafa;color:#666}
+  select.st-COMP{background:var(--ok)} select.st-IP{background:var(--ip)} select.st-WFP{background:var(--wfp)}
+  col.c-so{width:78px} col.c-tp{width:30px} col.c-t{width:96px} col.c-task{width:104px}
+  col.c-st{width:74px} col.c-h{width:62px}
+  tfoot td{border:1px solid var(--line);padding:5px 6px;font-weight:700;background:var(--head)}
+
+  .addRow{margin-top:8px}
+  .legend{display:flex;gap:26px;margin-top:16px;flex-wrap:wrap;font-size:11px;color:#333}
+  .legend table{border-collapse:collapse}
+  .legend td{padding:1px 10px 1px 0}
+  .legend .k{color:var(--muted)}
+
+  .toast{
+    position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1c1e21;color:#fff;
+    padding:8px 16px;border-radius:20px;font-size:12px;opacity:0;pointer-events:none;transition:opacity .2s
+  }
+  .toast.show{opacity:.92}
+  .hint{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5}
+  .fstat{font-size:11px;line-height:1.45;color:var(--muted);margin-bottom:6px;word-break:break-word}
+  .fstat b{color:var(--ink)}
+  .fstat.ok{color:#1a7f37} .fstat.warn{color:#a15c00} .fstat.err{color:var(--accent)}
+  .banner{
+    display:flex;align-items:center;gap:12px;max-width:1000px;margin:0 0 12px;
+    background:#fff8e6;border:1px solid #f0d18a;border-radius:6px;padding:9px 12px;font-size:12px
+  }
+  .banner span{flex:1}
+  .banner button{
+    background:var(--accent);border:1px solid var(--accent);color:#fff;
+    padding:5px 14px;border-radius:5px;white-space:nowrap
+  }
+  .banner button:hover{background:var(--accent-dk)}
+  .print-only{display:none}
+
+  /* ---------- phone / tablet ---------- */
+  #topbar,#scrim{display:none}
+  @media (max-width:820px){
+    #topbar{
+      display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:60;
+      background:var(--accent);color:#fff;padding:8px 10px
+    }
+    #topbar button{background:transparent;border:0;color:#fff;font-size:20px;line-height:1;padding:4px 8px;border-radius:5px}
+    #topbar button:active{background:rgba(255,255,255,.2)}
+    #topTitle{flex:1;font-weight:600;font-size:15px}
+
+    #app{display:block}
+    #side{
+      position:fixed;top:0;left:0;bottom:0;width:82vw;max-width:300px;z-index:70;
+      transform:translateX(-102%);transition:transform .2s ease;box-shadow:2px 0 14px rgba(0,0,0,.25)
+    }
+    body.nav #side{transform:none}
+    body.nav #scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:65}
+    #main{padding:10px 10px 40px}
+
+    .sheet{padding:10px;border-radius:8px}
+    .sheetHead img,.logoSpacer{width:38px}
+    .sheetHead .ttl h1{font-size:15px}
+    .meta{gap:10px 18px}
+    .fld input[type=text],.fld input[type=date]{min-width:0;width:100%}
+    .fld{flex:1 1 45%}
+
+    /* the 8-column grid becomes one card per entry */
+    table.grid colgroup,table.grid thead{display:none}
+    table.grid,table.grid tbody,table.grid tfoot,table.grid tr,table.grid td{display:block;width:auto}
+    table.grid tbody tr{
+      display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;
+      border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px;background:#fff
+    }
+    table.grid tbody tr.break{background:#fafafa}
+    table.grid tbody tr.extra{display:none}          /* only one spare card at a time */
+    table.grid td{border:0;height:auto;display:flex;align-items:center;gap:8px;min-height:38px}
+    table.grid td::before{
+      content:attr(data-label);flex:0 0 62px;font-size:10px;letter-spacing:.05em;
+      text-transform:uppercase;color:var(--muted)
+    }
+    table.grid td:nth-child(6){grid-column:1/-1;order:7}   /* Client */
+    table.grid td:nth-child(7){order:6}                    /* Status */
+    table.grid td:nth-child(8){grid-column:1/-1;order:8;border-top:1px dashed var(--line);padding-top:6px}
+    table.grid td.n{text-align:left;justify-content:flex-start}
+    table.grid input,table.grid select{
+      font-size:16px;padding:7px 6px;border:1px solid var(--line);border-radius:6px;background:#fff
+    }
+    td.tp{justify-content:flex-start}
+    td.tp::after{content:"tap to toggle";font-size:10px;color:var(--muted)}
+    tr.tpOn td.tp::after{content:""}
+    table.grid tfoot tr{display:flex;justify-content:space-between;padding:10px 8px;border-radius:8px}
+    table.grid tfoot td{border:0;background:transparent}
+    table.grid tfoot td:first-child{display:none}
+    .addRow{width:100% !important;padding:12px !important;font-size:15px}
+    .legend{font-size:10px;gap:14px}
+    .banner{flex-direction:column;align-items:stretch;gap:8px}
+    .banner button{width:100%;padding:10px}
+  }
+
+  /* ---------- print ---------- */
+  @page{size:portrait;margin:8mm}
+  @media print{
+    body{background:#fff}
+    #side,.addRow,.hint,.toast,.noprint{display:none !important}
+    #main{padding:0}
+    .print-only{display:block}
+    .sheet{border:0;box-shadow:none;border-radius:0;padding:0;max-width:none;font-size:9.5pt}
+    .sheetHead{padding-bottom:6px;margin-bottom:8px}
+    .sheetHead .ttl h1{font-size:15pt}
+    table.grid td{height:19px}
+    table.grid th{font-size:9pt;padding:3px 5px;background:#efeff2 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    table.grid input,table.grid select{
+      appearance:none;-webkit-appearance:none;border:0;background:transparent !important;padding:2px 4px
+    }
+    .fld input,.ro{border-bottom:1px solid #999;background:transparent}
+    tr,td,th{page-break-inside:avoid}
+    tfoot td{background:#efeff2 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<div id="topbar" class="noprint">
+  <button id="menuBtn" aria-label="Menu">☰</button>
+  <div id="topTitle">Time Sheet</div>
+  <button id="printBtn2" aria-label="Print">🖶</button>
+</div>
+<div id="scrim" class="noprint"></div>
+
+<div id="app">
+
+  <aside id="side" class="noprint">
+    <div class="brand">
+      <img id="logoSide" alt="">
+      <div><b>Time Sheet</b><span>Professional Services</span></div>
+    </div>
+
+    <div class="sec">
+      <h4>Day</h4>
+      <div class="row2">
+        <button class="btn" id="prevDay" title="Previous day">◀ Prev</button>
+        <button class="btn" id="nextDay" title="Next day">Next ▶</button>
+      </div>
+      <button class="btn" id="todayBtn">Go to today</button>
+      <button class="btn primary" id="printBtn">🖶 Print / PDF</button>
+    </div>
+
+    <div class="sec">
+      <h4>Saved days</h4>
+      <div id="dayList"></div>
+    </div>
+
+    <div class="sec">
+      <h4>This week</h4>
+      <table class="wk" id="weekTbl"></table>
+    </div>
+
+    <div class="sec">
+      <h4>Hours by task (week)</h4>
+      <table class="wk" id="taskTbl"></table>
+    </div>
+
+    <div class="sec" id="fileSec">
+      <h4>Data file</h4>
+      <div class="fstat" id="fileStat">Not linked — data is stored in this browser only.</div>
+      <button class="btn" id="linkExisting">Use existing data file…</button>
+      <button class="btn" id="linkNew">Create new data file…</button>
+      <button class="btn" id="reconnect" style="display:none">🔓 Reconnect data file</button>
+      <button class="btn" id="unlink" style="display:none">Unlink data file</button>
+    </div>
+
+    <div class="sec">
+      <h4>Tools</h4>
+      <button class="btn" id="copyPrev">Copy rows from previous day</button>
+      <button class="btn" id="exportCsv">Export CSV (all days)</button>
+      <button class="btn" id="exportJson">Backup all data (JSON)</button>
+      <button class="btn" id="importJson">Restore from backup…</button>
+      <button class="btn danger" id="clearDay">Clear this sheet</button>
+      <button class="btn danger" id="deleteDay">Delete this day</button>
+      <input type="file" id="fileIn" accept=".json,application/json" style="display:none">
+    </div>
+
+    <div class="sec">
+      <h4>Options</h4>
+      <label style="display:flex;gap:6px;align-items:center;font-size:12px">
+        <input type="checkbox" id="allHours"> Show all 24 hours in time lists
+      </label>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div class="banner noprint" id="banner" style="display:none">
+      <span id="bannerTxt"></span>
+      <button id="bannerBtn">Reconnect</button>
+    </div>
+    <div class="sheet" id="sheet">
+
+      <div class="sheetHead">
+        <img id="logoMain" alt="MicroAge">
+        <div class="ttl">
+          <h1>Time Sheet — Professional Services Team</h1>
+          <p>(15 minute increments &mdash; 0.25)</p>
+        </div>
+        <div class="logoSpacer"></div>
+      </div>
+
+      <div class="meta">
+        <div class="fld"><label for="fName">Name:</label><input type="text" id="fName" autocomplete="off"></div>
+        <div class="fld"><label for="fDate">Date:</label><input type="date" id="fDate"></div>
+        <div class="fld"><label>Work Start Time:</label><span class="ro" id="fStart">—</span></div>
+        <div class="fld"><label>Shop Left Time:</label><span class="ro" id="fEnd">—</span></div>
+      </div>
+
+      <table class="grid">
+        <colgroup>
+          <col class="c-so"><col class="c-tp"><col class="c-t"><col class="c-t">
+          <col class="c-task"><col><col class="c-st"><col class="c-h">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>S/O#</th><th title="Time entered in TP">TP</th><th>Start Time</th><th>End Time</th>
+            <th>Task</th><th>Client/Type</th><th>Status</th><th style="text-align:right">Hours</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" style="border:0;background:transparent;font-weight:400;font-size:11px">* Time entered in TP</td>
+            <td colspan="2" style="text-align:right">Total:</td>
+            <td class="n" id="total">0.00</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <button class="btn addRow noprint" id="addRow" style="width:auto;padding:5px 12px">+ Add row</button>
+
+      <div class="legend">
+        <table>
+          <tr><td class="k">S/O #</td><td class="k">Task</td><td class="k">Client/Type</td><td class="k">Status</td></tr>
+          <tr><td>Number</td><td>Onsite</td><td>Client name</td><td>COMP, IP, WFP</td></tr>
+          <tr><td>Number</td><td>Shop</td><td>Client name</td><td></td></tr>
+          <tr><td>Number</td><td>Remote</td><td>Client name</td><td>COMP, IP, WFP</td></tr>
+          <tr><td>Number</td><td>Shadow</td><td>Client name</td><td>COMP, IP, WFP</td></tr>
+          <tr><td>Number</td><td>Project</td><td>Client name</td><td>COMP, IP, WFP</td></tr>
+          <tr><td>-</td><td>Meeting</td><td>Service, Team or Management</td><td>-</td></tr>
+          <tr><td>Number</td><td>Training</td><td>OEM name</td><td>COMP, IP</td></tr>
+          <tr><td></td><td>Off</td><td>Reason eg, Unpaid, VAC</td><td></td></tr>
+          <tr><td>-</td><td>Admin</td><td>Day Open or Day Close</td><td>-</td></tr>
+        </table>
+        <table>
+          <tr><td>COMP = Complete</td></tr>
+          <tr><td>IP = In Progress</td></tr>
+          <tr><td>WFP = Waiting for Parts</td></tr>
+        </table>
+      </div>
+
+    </div>
+
+    <p class="hint">
+      Start times fill in automatically from the previous row's end time — just enter End times as you go.
+      Everything saves as you type. Lunch and Off rows are excluded from the total.
+      Link a data file in the sidebar to keep two computers in sync through OneDrive.
+    </p>
+  </main>
+</div>
+
+<datalist id="dlSo"></datalist>
+<datalist id="dlClient"></datalist>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------------- constants ---------------- */
+const LOGO = "data:image/png;base64,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";
+
+const TASKS   = ["","Onsite","Shop","Remote","Shadow","Project","Meeting","Training","Admin","PD","Lunch","Off"];
+const STATUS  = ["","COMP","IP","WFP"];
+const UNPAID  = ["Lunch","Off"];          // excluded from Hours + Total, as in the workbook
+const ROWS_DEFAULT = 26;                   // rows 8–33 in the workbook
+const KEY = "microage_timesheet_v1";
+
+/* ---------------- storage ---------------- */
+let DB = load();
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      d.days = d.days || {};
+      d.settings = Object.assign({name:"", allHours:false}, d.settings||{});
+      return d;
+    }
+  }catch(e){ console.error("Could not read saved data:", e); }
+  return {version:1, settings:{name:"", allHours:false}, days:{}};
+}
+/* Days edited here but not yet written to the linked file. These always beat
+   the file's copy on merge, so linking or reconnecting can't undo recent work.
+   Kept outside the payload so it survives restarts and never syncs. */
+let dirty = (()=>{ try{ return new Set(JSON.parse(localStorage.getItem(KEY+"_dirty")||"[]")); }catch(e){ return new Set(); } })();
+function saveDirty(){ try{ localStorage.setItem(KEY+"_dirty", JSON.stringify([...dirty])); }catch(e){} }
+function markDirty(d){ if(d && !dirty.has(d)){ dirty.add(d); saveDirty(); } }
+
+let saveTimer=null;
+function save(now){
+  clearTimeout(saveTimer);
+  const write = ()=>{
+    try{ localStorage.setItem(KEY, JSON.stringify(DB)); }
+    catch(e){ toast("Could not save — storage full or blocked"); console.error(e); }
+    queueFileWrite(now);
+  };
+  if(now) write(); else saveTimer = setTimeout(write, 250);
+}
+
+/* ---------------- helpers ---------------- */
+const $  = s=>document.querySelector(s);
+const pad = n=>String(n).padStart(2,"0");
+
+function todayISO(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function parseISO(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function shiftISO(s,n){ const d=parseISO(s); d.setDate(d.getDate()+n); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function longDate(s){ return parseISO(s).toLocaleDateString(undefined,{weekday:"short",year:"numeric",month:"short",day:"numeric"}); }
+function shortDate(s){ return parseISO(s).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}); }
+
+function toMin(hhmm){ if(!hhmm) return null; const [h,m]=hhmm.split(":").map(Number); return h*60+m; }
+function fmt12(hhmm){
+  if(!hhmm) return "";
+  let [h,m]=hhmm.split(":").map(Number);
+  const ap = h<12 ? "AM":"PM";
+  h = h%12; if(h===0) h=12;
+  return `${h}:${pad(m)} ${ap}`;
+}
+function timeOptions(){
+  const out=[""];
+  if(DB.settings.allHours){
+    for(let m=0;m<24*60;m+=15) out.push(`${pad(Math.floor(m/60))}:${pad(m%60)}`);
+  }else{
+    for(let m=6*60;m<24*60;m+=15) out.push(`${pad(Math.floor(m/60))}:${pad(m%60)}`);
+    out.push("00:00");                    // midnight, as in the workbook's list
+  }
+  return out;
+}
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+/* ---------------- day model ---------------- */
+function blankRow(){ return {so:"",tp:false,start:"",end:"",task:"",client:"",status:"",startManual:false}; }
+function blankDay(date){
+  return {date, name:DB.settings.name, rows:Array.from({length:ROWS_DEFAULT},blankRow)};
+}
+function getDay(date,create){
+  let d = DB.days[date];
+  if(!d && create){ d = DB.days[date] = blankDay(date); }
+  return d || blankDay(date);
+}
+function rowUsed(r){ return !!(r.so||r.end||r.task||r.client||r.status||(r.start&&r.startManual)); }
+function dayUsed(d){ return d.rows.some(rowUsed); }
+
+/* Start times cascade from the previous row's end unless the user set one by hand. */
+function cascade(day){
+  for(let i=0;i<day.rows.length;i++){
+    const r=day.rows[i];
+    if(r.startManual) continue;
+    r.start = i===0 ? r.start : (day.rows[i-1].end || "");
+  }
+}
+function rowHours(r){
+  if(!r.start || !r.end) return null;
+  if(UNPAID.includes(r.task)) return null;
+  let mins = toMin(r.end) - toMin(r.start);
+  if(mins <= 0) mins += 24*60;               // crosses midnight
+  return mins/60;
+}
+function dayTotal(day){
+  return day.rows.reduce((s,r)=> s + (rowHours(r)||0), 0);
+}
+
+/* ---------------- state ---------------- */
+let current = todayISO();
+let day = getDay(current,true);
+
+/* ---------------- rendering ---------------- */
+function render(){
+  cascade(day);
+  $("#fName").value = day.name || "";
+  $("#fDate").value = current;
+
+  const firstStart = day.rows.find(r=>r.start && rowUsed(r));
+  const lastEnd = [...day.rows].reverse().find(r=>r.end);
+  $("#fStart").textContent = firstStart ? fmt12(firstStart.start) : "—";
+  $("#fEnd").textContent   = lastEnd ? fmt12(lastEnd.end) : "—";
+
+  const times = timeOptions();
+  const tb = $("#rows");
+  tb.innerHTML = "";
+
+  let blankSeen=false;
+  day.rows.forEach((r,i)=>{
+    const tr = document.createElement("tr");
+    const cls = [UNPAID.includes(r.task) ? "break" : (rowUsed(r) ? "filled" : "")];
+    if(r.tp) cls.push("tpOn");
+    if(!rowUsed(r)){ if(blankSeen) cls.push("extra"); else blankSeen=true; }
+    tr.className = cls.join(" ");
+
+    tr.appendChild(cell(inputEl(r.so, "dlSo", v=>{
+      r.so=v.trim();
+      if(!r.client){ const c=clientForSo(r.so); if(c){ r.client=c; } }
+      commit(true);
+    }), "S/O#"));
+
+    const tp = document.createElement("td");
+    tp.className="tp"; tp.dataset.label="TP"; tp.textContent = r.tp ? "*" : "";
+    tp.title = "Time entered in TP — click to toggle";
+    tp.onclick = ()=>{ r.tp=!r.tp; commit(true); };
+    tr.appendChild(tp);
+
+    tr.appendChild(cell(selectEl(times, r.start, v=>{
+      r.start=v; r.startManual = !!v;   // blank it again to resume auto-fill
+      commit(true);
+    }, fmt12), "Start"));
+
+    tr.appendChild(cell(selectEl(times, r.end, v=>{ r.end=v; commit(true); }, fmt12), "End"));
+
+    tr.appendChild(cell(selectEl(TASKS, r.task, v=>{
+      r.task=v;
+      if(v==="Lunch" && !r.client) r.client="Lunch";
+      commit(true);
+    }), "Task"));
+
+    tr.appendChild(cell(inputEl(r.client, "dlClient", v=>{ r.client=v; commit(); }), "Client"));
+
+    const st = selectEl(STATUS, r.status, v=>{ r.status=v; commit(true); });
+    st.className = "st-"+(r.status||"none");
+    tr.appendChild(cell(st, "Status"));
+
+    const h = rowHours(r);
+    const td = document.createElement("td");
+    td.className="n"; td.dataset.label="Hours"; td.textContent = h==null ? "" : h.toFixed(2);
+    tr.appendChild(td);
+
+    tb.appendChild(tr);
+  });
+
+  $("#total").textContent = dayTotal(day).toFixed(2);
+  renderSidebar();
+  buildLists();
+}
+
+function cell(el,label){
+  const td=document.createElement("td");
+  if(label) td.dataset.label=label;        // shown as the field name in phone card view
+  td.appendChild(el); return td;
+}
+
+function inputEl(val, listId, onchange){
+  const el=document.createElement("input");
+  el.type="text"; el.value=val||""; el.autocomplete="off"; el.setAttribute("list",listId);
+  el.oninput = ()=>{ onchange(el.value); };
+  el.onchange = ()=>{ onchange(el.value); };
+  return el;
+}
+function selectEl(opts, val, onchange, label){
+  const el=document.createElement("select");
+  let has=false;
+  opts.forEach(o=>{
+    const op=document.createElement("option");
+    op.value=o; op.textContent = o==="" ? "" : (label?label(o):o);
+    if(o===val){ op.selected=true; has=true; }
+    el.appendChild(op);
+  });
+  if(val && !has){                            // value outside the current list (e.g. 24h toggled off)
+    const op=document.createElement("option");
+    op.value=val; op.textContent=label?label(val):val; op.selected=true;
+    el.appendChild(op);
+  }
+  el.onchange = ()=> onchange(el.value);
+  return el;
+}
+
+/* commit: persist + optionally re-render (re-render blurs the field, so only when layout changes) */
+function commit(rerender){
+  DB.days[current] = day;
+  markDirty(current);
+  if(!dayUsed(day) && !day.name) delete DB.days[current];
+  save();
+  if(rerender){
+    const a=document.activeElement, tb=$("#rows");
+    let pos=null;
+    if(a && tb.contains(a)){
+      const tr=a.closest("tr");
+      pos={r:[...tb.children].indexOf(tr), c:[...tr.children].indexOf(a.closest("td"))};
+    }
+    render();
+    if(pos){
+      const tr=$("#rows").children[pos.r];
+      const f = tr && tr.children[pos.c] && tr.children[pos.c].querySelector("input,select");
+      if(f) f.focus();
+    }
+  }else{
+    $("#total").textContent = dayTotal(day).toFixed(2);
+    renderSidebar();
+  }
+}
+
+/* ---------------- autocomplete sources ---------------- */
+function allRows(){
+  const out=[];
+  Object.values(DB.days).forEach(d=> d.rows.forEach(r=>{ if(rowUsed(r)) out.push(r); }));
+  return out;
+}
+function clientForSo(so){
+  if(!so) return "";
+  const hit = allRows().filter(r=>r.so===so && r.client).pop();
+  return hit ? hit.client : "";
+}
+function buildLists(){
+  const rows=allRows();
+  fill("#dlSo",  [...new Set(rows.map(r=>r.so).filter(Boolean))].sort());
+  fill("#dlClient",[...new Set(rows.map(r=>r.client).filter(Boolean))].sort());
+  function fill(sel,vals){
+    const dl=$(sel); dl.innerHTML="";
+    vals.forEach(v=>{ const o=document.createElement("option"); o.value=v; dl.appendChild(o); });
+  }
+}
+
+/* ---------------- sidebar ---------------- */
+function renderSidebar(){
+  // saved days
+  const list=$("#dayList");
+  const dates=Object.keys(DB.days).filter(d=>dayUsed(DB.days[d])).sort().reverse();
+  if(!dates.length){ list.innerHTML='<div class="empty">No saved days yet</div>'; }
+  else{
+    list.innerHTML="";
+    dates.forEach(d=>{
+      const div=document.createElement("div");
+      div.className="dayItem"+(d===current?" on":"");
+      div.innerHTML=`<span>${shortDate(d)}</span><small>${dayTotal(DB.days[d]).toFixed(2)}</small>`;
+      div.onclick=()=>goto(d);
+      list.appendChild(div);
+    });
+  }
+
+  // week
+  const mon=weekStart(current);
+  let wk="", wtot=0;
+  const byTask={};
+  for(let i=0;i<7;i++){
+    const ds=shiftISO(mon,i);
+    const d=DB.days[ds];
+    const t=d?dayTotal(d):0; wtot+=t;
+    if(d) d.rows.forEach(r=>{ const h=rowHours(r); if(h){ byTask[r.task||"(none)"]=(byTask[r.task||"(none)"]||0)+h; } });
+    wk+=`<tr class="${ds===current?"today":""}" data-d="${ds}" style="cursor:pointer">
+          <td>${parseISO(ds).toLocaleDateString(undefined,{weekday:"short",day:"numeric"})}</td>
+          <td>${t?t.toFixed(2):"–"}</td></tr>`;
+  }
+  wk+=`<tr class="tot"><td>Total</td><td>${wtot.toFixed(2)}</td></tr>`;
+  $("#weekTbl").innerHTML=wk;
+  $("#weekTbl").querySelectorAll("tr[data-d]").forEach(tr=> tr.onclick=()=>goto(tr.dataset.d));
+
+  const keys=Object.keys(byTask).sort((a,b)=>byTask[b]-byTask[a]);
+  $("#taskTbl").innerHTML = keys.length
+    ? keys.map(k=>`<tr><td>${k}</td><td>${byTask[k].toFixed(2)}</td></tr>`).join("")
+    : '<tr><td colspan="2" style="color:#6b7280">No hours this week</td></tr>';
+}
+function weekStart(iso){                      // Monday
+  const d=parseISO(iso); const dow=(d.getDay()+6)%7;
+  return shiftISO(iso,-dow);
+}
+
+/* ---------------- navigation ---------------- */
+function goto(date){
+  save(true);
+  current=date;
+  day=getDay(date,true);
+  render();
+}
+
+/* ---------------- actions ---------------- */
+$("#fName").oninput = e=>{ day.name=e.target.value; DB.settings.name=e.target.value; commit(); };
+$("#fDate").onchange = e=>{ if(e.target.value) goto(e.target.value); };
+$("#prevDay").onclick = ()=>goto(shiftISO(current,-1));
+$("#nextDay").onclick = ()=>goto(shiftISO(current,1));
+$("#todayBtn").onclick = ()=>goto(todayISO());
+$("#printBtn").onclick = ()=>window.print();
+
+/* phone drawer */
+const nav = on => document.body.classList.toggle("nav", on);
+$("#menuBtn").onclick = ()=> nav(!document.body.classList.contains("nav"));
+$("#scrim").onclick = ()=> nav(false);
+$("#printBtn2").onclick = ()=>{ nav(false); window.print(); };
+$("#side").addEventListener("click", e=>{        // close after picking a day or an action
+  if(e.target.closest(".dayItem,.btn,.wk tr[data-d]")) nav(false);
+});
+$("#addRow").onclick = ()=>{ day.rows.push(blankRow()); commit(true); };
+
+$("#allHours").onchange = e=>{ DB.settings.allHours=e.target.checked; save(true); render(); };
+
+$("#clearDay").onclick = ()=>{
+  if(!confirm("Clear every entry on this sheet? This cannot be undone.")) return;
+  day.rows = Array.from({length:ROWS_DEFAULT},blankRow);
+  commit(true); toast("Sheet cleared");
+};
+$("#deleteDay").onclick = ()=>{
+  if(!confirm(`Delete the saved sheet for ${longDate(current)}?`)) return;
+  delete DB.days[current];
+  day = getDay(current,true);
+  save(true); render(); toast("Day deleted");
+};
+$("#copyPrev").onclick = ()=>{
+  const prior = Object.keys(DB.days).filter(d=>d<current && dayUsed(DB.days[d])).sort().pop();
+  if(!prior){ toast("No earlier day to copy from"); return; }
+  if(dayUsed(day) && !confirm("Replace this sheet with the rows from "+shortDate(prior)+"?")) return;
+  day.rows = DB.days[prior].rows.map(r=>({
+    so:r.so, tp:false, start:"", end:"", task:r.task, client:r.client, status:"", startManual:false
+  }));
+  commit(true); toast("Copied rows from "+shortDate(prior));
+};
+
+$("#exportCsv").onclick = ()=>{
+  const head=["Date","S/O#","TP","Start","End","Task","Client/Type","Status","Hours"];
+  const lines=[head.join(",")];
+  Object.keys(DB.days).sort().forEach(d=>{
+    const dd=DB.days[d]; cascade(dd);
+    dd.rows.forEach(r=>{
+      if(!rowUsed(r)) return;
+      const h=rowHours(r);
+      lines.push([d,r.so,r.tp?"*":"",fmt12(r.start),fmt12(r.end),r.task,r.client,r.status,h==null?"":h.toFixed(2)]
+        .map(v=>{ v=String(v==null?"":v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(","));
+    });
+    lines.push([d,"","","","","","","Total",dayTotal(dd).toFixed(2)].join(","));
+  });
+  download("timesheet-"+todayISO()+".csv", lines.join("\r\n"), "text/csv");
+};
+$("#exportJson").onclick = ()=>{
+  save(true);
+  download("timesheet-backup-"+todayISO()+".json", JSON.stringify(DB,null,2), "application/json");
+};
+$("#importJson").onclick = ()=> $("#fileIn").click();
+$("#fileIn").onchange = e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{
+      const d=JSON.parse(fr.result);
+      if(!d || typeof d!=="object" || !d.days) throw new Error("Not a timesheet backup");
+      const mine=Object.keys(DB.days).length, theirs=Object.keys(d.days).length;
+      if(!confirm(`Restore ${theirs} day(s) from this backup? Days with the same date will be replaced (you currently have ${mine}).`)) return;
+      DB.settings = Object.assign(DB.settings, d.settings||{});
+      Object.assign(DB.days, d.days);
+      Object.keys(d.days).forEach(markDirty);   // restored days must reach the linked file too
+      save(true); day=getDay(current,true); render(); toast("Backup restored");
+    }catch(err){ alert("Could not read that file: "+err.message); }
+  };
+  fr.readAsText(f);
+  e.target.value="";
+};
+
+document.addEventListener("keydown", e=>{
+  if((e.ctrlKey||e.metaKey) && e.key==="p"){ /* let the browser print */ }
+  if(e.altKey && e.key==="ArrowLeft"){ e.preventDefault(); goto(shiftISO(current,-1)); }
+  if(e.altKey && e.key==="ArrowRight"){ e.preventDefault(); goto(shiftISO(current,1)); }
+});
+window.addEventListener("beforeunload", ()=>save(true));
+
+/* ================= linked data file =================
+   Keeps DB mirrored to a real .json file (e.g. in OneDrive) so two PCs can
+   share one timesheet. localStorage stays in use as a local cache/fallback. */
+
+const FSA = typeof window.showSaveFilePicker === "function";
+let fh = null;              // FileSystemFileHandle
+let fhName = "";
+let lastMod = 0;            // mtime of the last version we read or wrote
+let fileTimer = null;
+let writing = false;
+
+/* --- tiny IndexedDB box, just to persist the file handle --- */
+function idb(){
+  return new Promise((res,rej)=>{
+    const rq = indexedDB.open("timesheet_fs",1);
+    rq.onupgradeneeded = ()=> rq.result.createObjectStore("h");
+    rq.onsuccess = ()=> res(rq.result);
+    rq.onerror = ()=> rej(rq.error);
+  });
+}
+async function idbSet(v){
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction("h","readwrite");
+    tx.objectStore("h").put(v,"handle");
+    tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+  });
+}
+async function idbGet(){
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction("h","readonly");
+    const rq=tx.objectStore("h").get("handle");
+    rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error);
+  });
+}
+
+async function perm(handle, ask){
+  const opt={mode:"readwrite"};
+  if(await handle.queryPermission(opt)==="granted") return true;
+  if(!ask) return false;
+  return (await handle.requestPermission(opt))==="granted";
+}
+
+function fileStatus(text, cls){
+  const el=$("#fileStat");
+  el.className="fstat"+(cls?" "+cls:"");
+  el.innerHTML=text;
+  $("#linkExisting").style.display = fh ? "none":"block";
+  $("#linkNew").style.display      = fh ? "none":"block";
+  $("#unlink").style.display       = fh ? "block":"none";
+}
+
+/* Merge a file's contents into DB. Same date present in both -> the file wins,
+   any day only we have is kept, so linking can never drop a day. */
+function mergeIn(data){
+  if(!data || typeof data!=="object" || !data.days) throw new Error("Not a timesheet data file");
+  DB.settings = Object.assign(DB.settings, data.settings||{});
+  const incoming = data.days;
+  Object.keys(incoming).forEach(d=>{
+    if(dirty.has(d)) return;                // edited here since the last sync — keep ours
+    DB.days[d] = incoming[d];
+  });
+}
+
+async function readIntoDB(){
+  const f = await fh.getFile();
+  lastMod = f.lastModified;
+  const txt = (await f.text()).trim();
+  if(!txt) return false;                    // brand-new empty file
+  mergeIn(JSON.parse(txt));
+  return true;
+}
+
+async function writeNow(){
+  if(!fh || writing) return;
+  writing = true;
+  try{
+    if(!(await perm(fh,false))){ fileStatus(`<b>${esc(fhName)}</b><br>Access needs re-confirming.`,"warn"); showBanner(); return; }
+    const pending = new Set(dirty);         // snapshot: anything edited mid-write stays dirty
+    const w = await fh.createWritable();
+    await w.write(JSON.stringify(DB,null,2));
+    await w.close();
+    pending.forEach(d=>dirty.delete(d)); saveDirty();
+    lastMod = (await fh.getFile()).lastModified;
+    fileStatus(`Saving to <b>${esc(fhName)}</b><br>Last saved ${new Date().toLocaleTimeString()}`,"ok");
+  }catch(e){
+    console.error(e);
+    fileStatus(`<b>${esc(fhName)}</b><br>Could not write: ${esc(e.message)}`,"err");
+  }finally{ writing=false; }
+}
+function queueFileWrite(now){
+  if(!fh) return;
+  clearTimeout(fileTimer);
+  if(now) writeNow(); else fileTimer=setTimeout(writeNow,800);
+}
+function esc(s){ return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+async function adopt(handle, isNew){
+  fh = handle; fhName = handle.name;
+  try{
+    // Always read first: "Create new…" can also land on an existing file,
+    // and overwriting it unread would throw away real days.
+    try{ await readIntoDB(); }
+    catch(e){ if(!isNew) throw e;
+      if(!confirm(`${handle.name} already exists and isn't a timesheet data file.\n\nReplace its contents?`)){ fh=null; return; } }
+    await idbSet(handle);
+    day = getDay(current,true);
+    render();
+    await writeNow();                       // push anything only we had
+    toast("Linked to "+fhName);
+  }catch(e){
+    fh=null; fileStatus("Not linked — data is stored in this browser only.");
+    alert("Could not use that file: "+e.message);
+  }
+}
+
+$("#linkExisting").onclick = async ()=>{
+  try{
+    const [h] = await window.showOpenFilePicker({
+      types:[{description:"Timesheet data",accept:{"application/json":[".json"]}}],
+      multiple:false
+    });
+    if(!(await perm(h,true))) return toast("Permission declined");
+    await adopt(h,false);
+  }catch(e){ if(e.name!=="AbortError") alert(e.message); }
+};
+$("#linkNew").onclick = async ()=>{
+  try{
+    const h = await window.showSaveFilePicker({
+      suggestedName:"timesheet-data.json",
+      types:[{description:"Timesheet data",accept:{"application/json":[".json"]}}]
+    });
+    if(!(await perm(h,true))) return toast("Permission declined");
+    await adopt(h,true);
+  }catch(e){ if(e.name!=="AbortError") alert(e.message); }
+};
+/* Chrome only grants file access for the session, and file:// pages can't be
+   given permanent permission — so we ask again each launch, on the first click. */
+let needReconnect=false, asked=false;
+
+function showBanner(){
+  if(needReconnect) return;                 // already showing — don't re-arm the prompt
+  needReconnect=true; asked=false;
+  const n = dirty.size;
+  $("#bannerTxt").innerHTML =
+    `Not saving to <b>${esc(fhName)}</b> yet — Chrome asks permission each time this is opened. ` +
+    `Everything you type is still saved here` +
+    (n ? `, and <b>${n} day${n>1?"s":""}</b> will be written to the file as soon as you reconnect.` : `.`);
+  $("#banner").style.display="flex";
+  $("#reconnect").style.display="block";
+  document.addEventListener("pointerdown", firstGesture, true);
+  document.addEventListener("keydown", firstGesture, true);
+}
+function hideBanner(){
+  needReconnect=false;
+  $("#banner").style.display="none";
+  $("#reconnect").style.display="none";
+  document.removeEventListener("pointerdown", firstGesture, true);
+  document.removeEventListener("keydown", firstGesture, true);
+}
+function firstGesture(){
+  if(asked) return;
+  asked=true;                               // one prompt per launch, never nag
+  document.removeEventListener("pointerdown", firstGesture, true);
+  document.removeEventListener("keydown", firstGesture, true);
+  doReconnect(true);
+}
+async function doReconnect(quiet){
+  if(!fh) return;
+  if(!(await perm(fh,true))){
+    if(!quiet) toast("Permission declined");
+    return;                                 // banner stays, button still works
+  }
+  hideBanner();
+  await pullIfNewer(true);
+  await writeNow();
+  toast("Reconnected to "+fhName);
+}
+$("#reconnect").onclick = ()=>doReconnect(false);
+$("#bannerBtn").onclick = ()=>doReconnect(false);
+$("#unlink").onclick = async ()=>{
+  if(!confirm("Stop saving to "+fhName+"? Your data stays in this browser, and the file is left as it is.")) return;
+  fh=null; fhName=""; await idbSet(null);
+  hideBanner();
+  fileStatus("Not linked — data is stored in this browser only.");
+  toast("Unlinked");
+};
+
+/* Pick up edits made on the other PC when the window regains focus. */
+async function pullIfNewer(force){
+  if(!fh || writing) return;
+  try{
+    if(!(await perm(fh,false))) return;
+    const f = await fh.getFile();
+    if(!force && f.lastModified <= lastMod) return;
+    const txt=(await f.text()).trim();
+    if(!txt) return;
+    lastMod=f.lastModified;
+    mergeIn(JSON.parse(txt));
+    save();
+    day=getDay(current,true);
+    render();
+    if(!force) toast("Loaded newer changes from "+fhName);
+  }catch(e){ console.error(e); }
+}
+window.addEventListener("focus", ()=>pullIfNewer(false));
+
+/* Keep a window that's sitting open current with the other PC, without
+   needing it clicked into. Skips while you're actually typing in a cell. */
+const POLL_MS = 30000;
+setInterval(()=>{
+  if(!fh || writing) return;
+  const a=document.activeElement;
+  if(document.hasFocus() && a && a.closest && a.closest("#rows")) return;
+  pullIfNewer(false);
+}, POLL_MS);
+
+async function initFileLink(){
+  if(!FSA){
+    $("#fileSec").innerHTML =
+      '<h4>Data file</h4><div class="fstat">This browser can\'t link to a data file. ' +
+      'Use Chrome or Edge for that, or keep using Backup / Restore below.</div>';
+    return;
+  }
+  fileStatus("Not linked — data is stored in this browser only.");
+  try{
+    const h = await idbGet();
+    if(!h) return;
+    fh=h; fhName=h.name;
+    if(await perm(h,false)){
+      await readIntoDB();
+      day=getDay(current,true);
+      render();
+      fileStatus(`Saving to <b>${esc(fhName)}</b>`,"ok");
+    }else{
+      fileStatus(`<b>${esc(fhName)}</b><br>Click Reconnect to resume saving to this file.`,"warn");
+      $("#linkExisting").style.display="none"; $("#linkNew").style.display="none";
+      showBanner();
+    }
+  }catch(e){ console.error(e); }
+}
+
+/* ---------------- boot ---------------- */
+$("#logoSide").src = LOGO;
+$("#logoMain").src = LOGO;
+$("#allHours").checked = !!DB.settings.allHours;
+render();
+initFileLink();
+
+})();
+</script>
+</body>
+</html>
