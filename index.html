@@ -843,6 +843,11 @@ $("#rows").addEventListener("keydown", e=>{
   const rows=[...tr.parentNode.children];
   const ri=rows.indexOf(tr), col=[...tr.children].indexOf(td);
   const isText = el.tagName==="INPUT";
+  /* Arriving by arrow selects the whole value, which stands in for Excel's
+     "cell selected" state: arrows keep moving. Once you type or click, the
+     selection collapses and arrows work the caret instead. */
+  const whole = isText && el.value.length>0 &&
+                el.selectionStart===0 && el.selectionEnd===el.value.length;
   let target=null;
 
   switch(e.key){
@@ -859,11 +864,11 @@ $("#rows").addEventListener("keydown", e=>{
       break;
     }
     case "ArrowRight":
-      if(isText && el.selectionStart!==el.value.length) return;   // caret first
+      if(isText && !whole && el.selectionStart!==el.value.length) return;   // caret first
       for(let c=col+1;c<tr.children.length;c++){ const t=cellControl(tr,c); if(t){ target=t; break; } }
       break;
     case "ArrowLeft":
-      if(isText && el.selectionStart!==0) return;
+      if(isText && !whole && el.selectionStart!==0) return;
       for(let c=col-1;c>=0;c--){ const t=cellControl(tr,c); if(t){ target=t; break; } }
       break;
     default: return;
