@@ -531,6 +531,22 @@ function timeOptions(){
   }
   return out;
 }
+function download(name, text, type){
+  try{
+    const blob = new Blob([text], {type:type+";charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href=url; a.download=name; a.rel="noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 10000);
+    toast("Saved "+name);
+  }catch(e){
+    console.error(e);
+    alert("Could not create the file: "+e.message);
+  }
+}
 function toast(msg){
   const t=$("#toast"); t.textContent=msg; t.classList.add("show");
   clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),1800);
@@ -1043,7 +1059,7 @@ $("#exportCsv").onclick = ()=>{
     });
     lines.push([d,"","","","","","","Total",dayTotal(dd).toFixed(2)].join(","));
   });
-  download("timesheet-"+todayISO()+".csv", lines.join("\r\n"), "text/csv");
+  download("timesheet-"+todayISO()+".csv", "﻿"+lines.join("\r\n"), "text/csv");  // BOM so Excel reads UTF-8
 };
 $("#exportJson").onclick = ()=>{
   save(true);
