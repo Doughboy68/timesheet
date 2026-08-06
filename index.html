@@ -467,10 +467,10 @@
         <tr><td>Shadow</td><td>Number</td><td>Client name</td><td>COMP, IP, WFP</td></tr>
         <tr><td>Project</td><td>Number</td><td>Client name</td><td>COMP, IP, WFP</td></tr>
         <tr><td>Training</td><td>Number</td><td>OEM name</td><td>COMP, IP</td></tr>
-        <tr><td>Meeting</td><td>–</td><td>Service, Team or Management</td><td>–</td></tr>
-        <tr><td>Admin</td><td>–</td><td>Day Open or Day Close</td><td>–</td></tr>
-        <tr><td>Off</td><td>–</td><td>Reason, eg. Unpaid, VAC</td><td>–</td></tr>
-        <tr><td>Lunch</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td>Meeting</td><td>blank</td><td>Service, Team or Management</td><td>–</td></tr>
+        <tr><td>Admin</td><td>blank</td><td>Day Open or Day Close</td><td>–</td></tr>
+        <tr><td>Off</td><td>blank</td><td>Reason, eg. Unpaid, VAC</td><td>–</td></tr>
+        <tr><td>Lunch</td><td>blank</td><td>–</td><td>–</td></tr>
       </tbody>
     </table>
     <ul class="refNotes">
@@ -765,7 +765,7 @@ function render(){
         }
         tr.classList.toggle("filled", rowUsed(r));
         commit();                                        // …never re-render: this fires as
-      }), "S/O#"));                                      // focus leaves, and a rebuild would
+      }, true), "S/O#"));                                // focus leaves, and a rebuild would
                                                          // destroy the cell just moved to
 
     const tp = document.createElement("td");
@@ -831,17 +831,32 @@ function cell(el,label){
 
 /* onInput fires per keystroke and must stay cheap; onCommit runs on blur or
    Enter, and is where anything that re-renders the table belongs. */
-function inputEl(val, listId, onInput, onCommit){
+function inputEl(val, listId, onInput, onCommit, numeric){
   const el=document.createElement("input");
   el.type="text"; el.value=val||""; el.autocomplete="off";
+  if(numeric){
+    el.inputMode="numeric";                  // number pad on the phone
+    el.setAttribute("pattern","[0-9]*");
+  }
+  /* Strip anything that isn't a digit, keeping the caret where it was, so
+     typed letters and pasted text simply don't take. */
+  const clean = ()=>{
+    if(!numeric) return;
+    const digits = el.value.replace(/\D/g,"");
+    if(digits===el.value) return;
+    const pos = Math.max(0, el.selectionStart - (el.value.length - digits.length));
+    el.value = digits;
+    try{ el.setSelectionRange(pos,pos); }catch(err){}
+  };
   /* The suggestion list is attached only while typing. Left permanently on,
      the browser's popup opens whenever the cell is entered and then eats the
      arrow keys, trapping you in the cell. */
   el.oninput = ()=>{
+    clean();
     if(listId){ el.value ? el.setAttribute("list",listId) : el.removeAttribute("list"); }
     onInput(el.value);
   };
-  el.onchange = ()=>{ el.removeAttribute("list"); (onCommit||onInput)(el.value); };
+  el.onchange = ()=>{ clean(); el.removeAttribute("list"); (onCommit||onInput)(el.value); };
   el.addEventListener("blur", ()=> el.removeAttribute("list"));
   return el;
 }
