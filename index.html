@@ -776,7 +776,7 @@ function render(){
       commit(true);
     }, null, "tasks"), "Task"));
 
-    tr.appendChild(cell(inputEl(r.client, "dlClient", v=>{ r.client=v; commit(); }), "Client"));
+    tr.appendChild(cell(inputEl(r.client, "dlClient", v=>{ r.client=v; commit(); }), "CL/DES"));
 
     const st = selectEl(STATUS, r.status, v=>{ r.status=v; commit(true); }, null, "status");
     st.className = "st-"+(r.status||"none");
