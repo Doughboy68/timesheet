@@ -240,6 +240,8 @@
     padding:5px 14px;border-radius:5px;white-space:nowrap
   }
   .banner button:hover{background:var(--accent-dk)}
+  .banner.upd{background:var(--ok);border-color:var(--okink)}
+  .banner.upd button{background:var(--okink);border-color:var(--okink)}
   .print-only{display:none}
 
   /* ---------- phone / tablet ---------- */
@@ -472,6 +474,10 @@
       <span id="bannerTxt"></span>
       <button id="bannerBtn">Reconnect</button>
     </div>
+    <div class="banner upd noprint" id="updateBar" style="display:none">
+      <span>A new version is ready.</span>
+      <button id="updateBtn">Reload</button>
+    </div>
     <div class="sheet" id="sheet">
 
       <div class="sheetHead">
@@ -564,6 +570,7 @@
       <li><b>Editing:</b> arriving at a cell selects it, so typing replaces what's there.
           Press <b>F2</b> (or <b>End</b>) to put the cursor in the text and edit it instead.
           In a dropdown, type the first letter or press <b>Alt+&darr;</b> to open the list.</li>
+      <li id="buildLine" style="color:var(--muted)">Version <b id="buildId">dev</b></li>
       <li><b>Escape</b> puts the row back to how it was when you moved into it.
           <b>Ctrl+Z</b> undoes across the whole day, <b>Ctrl+Y</b> redoes — or use the
           Undo and Redo buttons. Clearing a day can be undone too.</li>
@@ -1781,12 +1788,54 @@ async function initFileLink(){
   }catch(e){ console.error(e); }
 }
 
+/* ---------------- offline + updates ----------------
+   The worker caches the app so it opens without a signal. A new build waits
+   rather than taking over mid-edit; the bar below is how you accept it. */
+const BUILD = "2026-08-06.1616";
+
+function showUpdateBar(reg){
+  const bar=$("#updateBar");
+  if(bar.style.display==="flex") return;
+  bar.style.display="flex";
+  $("#updateBtn").onclick = ()=>{
+    $("#updateBtn").disabled = true;
+    $("#updateBtn").textContent = "Reloading…";
+    if(reg.waiting) reg.waiting.postMessage("SKIP_WAITING");
+    else location.reload();
+  };
+}
+
+if("serviceWorker" in navigator && location.protocol==="https:"){
+  let reloading=false;
+  navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+    if(reloading) return;                     // fires once the new worker takes over
+    reloading=true;
+    location.reload();
+  });
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").then(reg=>{
+      if(reg.waiting && navigator.serviceWorker.controller) showUpdateBar(reg);
+      reg.addEventListener("updatefound", ()=>{
+        const fresh=reg.installing;
+        if(!fresh) return;
+        fresh.addEventListener("statechange", ()=>{
+          // only a genuine update — on a first install there's no controller yet
+          if(fresh.state==="installed" && navigator.serviceWorker.controller) showUpdateBar(reg);
+        });
+      });
+      // look for a new build when the app is brought back to the front
+      window.addEventListener("focus", ()=>{ reg.update().catch(()=>{}); });
+    }).catch(err=>console.error("Service worker did not register:", err));
+  });
+}
+
 /* ---------------- boot ---------------- */
 $("#logoSide").src = LOGO;
 $("#logoMain").src = LOGO;
 $("#allHours").checked = !!DB.settings.allHours;
 $("#theme").value = DB.settings.theme || "auto";
 applyTheme();
+$("#buildId").textContent = BUILD;
 
 /* Remember which of the folded sections you left open. */
 DB.settings.folds = DB.settings.folds || {};
