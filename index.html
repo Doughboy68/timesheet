@@ -444,7 +444,8 @@
       <li><b>TP</b> — mark with <b>*</b> once the time is entered in Tigerpaw.
           Space bar, click or tap toggles it.</li>
       <li>Times run in 15 minute steps (0.25). Start fills in from the row above, so you only enter End times.</li>
-      <li><b>Lunch</b> and <b>Off</b> don't count toward the daily total.</li>
+      <li><b>Lunch</b>, <b>Off</b>, and any row with no <b>Task</b> chosen don't count
+          toward the daily total.</li>
       <li><b>Getting around:</b> arrow keys move between cells and <b>Enter</b> moves down,
           as in Excel. <b>Tab</b> moves right. <b>Alt+&larr;/&rarr;</b> changes day.</li>
       <li><b>Editing:</b> arriving at a cell selects it, so typing replaces what's there.
@@ -603,7 +604,7 @@ function cascade(day){
 }
 function rowHours(r){
   if(!r.start || !r.end) return null;
-  if(UNPAID.includes(r.task)) return null;
+  if(!r.task || UNPAID.includes(r.task)) return null;   // no task counts no time, as Lunch and Off do
   let mins = toMin(r.end) - toMin(r.start);
   if(mins <= 0) mins += 24*60;               // crosses midnight
   return mins/60;
@@ -620,8 +621,10 @@ let undoStack=[], redoStack=[], baseline=null, undoTimer=null, pending=false;
 
 const snap = d => ({name:d.name, rows:JSON.parse(JSON.stringify(d.rows))});
 
+let lastKey=null;                              // which cell the current step belongs to
+
 function undoReset(){
-  undoStack=[]; redoStack=[]; pending=false;
+  undoStack=[]; redoStack=[]; pending=false; lastKey=null;
   clearTimeout(undoTimer);
   baseline = snap(day);
 }
@@ -638,6 +641,24 @@ function noteChange(){
   clearTimeout(undoTimer);
   undoTimer=setTimeout(undoFlush, COALESCE_MS);
 }
+
+/* Close the current undo step as soon as the edit moves to a different cell,
+   so typing a client name is one step but Task-then-Status is two. This must
+   run before the value is written, hence capture phase — undoFlush() records
+   the state as it stands, which is still pre-edit at this point. */
+function keyFor(el){
+  const td = el && el.closest ? el.closest("td") : null;
+  if(!td) return "other";
+  const tr = td.closest("tr");
+  return [...tr.parentNode.children].indexOf(tr) + ":" + [...tr.children].indexOf(td);
+}
+function preEdit(e){
+  const k = keyFor(e.target);
+  if(pending && k!==lastKey) undoFlush();
+  lastKey = k;
+}
+["input","change","click"].forEach(t=> $("#rows").addEventListener(t, preEdit, true));
+$("#fName").addEventListener("input", preEdit, true);
 function applyState(s){
   day = {date:current, name:s.name, rows:JSON.parse(JSON.stringify(s.rows))};
   DB.days[current]=day;
@@ -1052,7 +1073,7 @@ $("#printBtn2").onclick = ()=>{ nav(false); window.print(); };
 $("#side").addEventListener("click", e=>{        // close after picking a day or an action
   if(e.target.closest(".dayItem,.btn,.wk tr[data-d]")) nav(false);
 });
-$("#addRow").onclick = ()=>{ day.rows.push(blankRow()); commit(true); };
+$("#addRow").onclick = ()=>{ undoFlush(); day.rows.push(blankRow()); commit(true); };
 $("#undoBtn").onclick = ()=>undo();
 $("#redoBtn").onclick = ()=>redo();
 
@@ -1060,6 +1081,7 @@ $("#allHours").onchange = e=>{ DB.settings.allHours=e.target.checked; save(true)
 
 $("#clearDay").onclick = ()=>{
   if(dayUsed(day) && !confirm(`Clear ${longDate(current)}? Everything on this sheet will be removed.`)) return;
+  undoFlush();                              // its own undo step, never merged with typing
   delete DB.days[current];                  // drop the saved record, not just the rows
   markDirty(current);                       // so the deletion reaches the linked file
   day = getDay(current);                    // fresh blank, not written back until edited
