@@ -53,9 +53,15 @@
   /* don't rely on the engine's native collapsing — hide the content ourselves */
   details.fold:not([open])>*:not(summary){display:none !important}
   .btn{
-    display:block;width:100%;text-align:left;padding:6px 9px;margin-bottom:4px;border:1px solid var(--line);
-    background:#fff;border-radius:5px;color:var(--ink)
+    display:flex;align-items:center;gap:7px;width:100%;text-align:left;padding:6px 9px;
+    margin-bottom:4px;border:1px solid var(--line);background:#fff;border-radius:5px;color:var(--ink)
   }
+  .btn svg{
+    flex:0 0 auto;width:15px;height:15px;fill:none;stroke:currentColor;
+    stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)
+  }
+  .btn:hover svg{color:var(--ink)}
+  #nextDay{justify-content:space-between}    /* label left, arrow on the right */
   .btn:hover{background:#f0f1f4}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   .btn.primary:hover{background:var(--accent-dk)}
@@ -347,13 +353,21 @@
     <div class="sec">
       <h4>Day</h4>
       <div class="row2">
-        <button class="btn" id="prevDay" title="Previous day">&lsaquo; Prev</button>
-        <button class="btn" id="nextDay" title="Next day">Next &rsaquo;</button>
+        <button class="btn" id="prevDay" title="Previous day">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Prev</button>
+        <button class="btn" id="nextDay" title="Next day">Next<svg viewBox="0 0 24 24"
+          aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       </div>
       <button class="btn" id="todayBtn">Go to today</button>
       <div class="row2">
-        <button class="btn" id="undoBtn" title="Ctrl+Z">Undo</button>
-        <button class="btn" id="redoBtn" title="Ctrl+Y">Redo</button>
+        <button class="btn" id="undoBtn" title="Ctrl+Z">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 9h11a5 5 0 0 1 0 10H9"/><path d="M7 6L4 9l3 3"/>
+          </svg>Undo</button>
+        <button class="btn" id="redoBtn" title="Ctrl+Y">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 9H9a5 5 0 0 0 0 10h6"/><path d="M17 6l3 3-3 3"/>
+          </svg>Redo</button>
       </div>
       <button class="btn primary" id="printBtn">Print / PDF</button>
       <button class="btn" id="refBtn">? What goes in each column</button>
