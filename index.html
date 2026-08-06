@@ -1200,7 +1200,23 @@ $("#fDate").onchange = e=>{ if(e.target.value) goto(e.target.value); };
 $("#prevDay").onclick = ()=>goto(shiftISO(current,-1));
 $("#nextDay").onclick = ()=>goto(shiftISO(current,1));
 $("#todayBtn").onclick = ()=>goto(todayISO());
-$("#printBtn").onclick = ()=>window.print();
+/* Save-as-PDF takes its filename from the page title, so name it for the day
+   being printed and put the title back afterwards. */
+const BASE_TITLE = document.title;
+function printTitle(){
+  const nm = (day.name||"").trim()
+    .replace(/[\\/:*?"<>|]/g,"")        // characters a filename can't carry
+    .replace(/\s+/g," ");
+  return ["Timesheet", nm, current].filter(Boolean).join(" ");
+}
+window.addEventListener("beforeprint", ()=>{ document.title = printTitle(); });
+window.addEventListener("afterprint",  ()=>{ document.title = BASE_TITLE; });
+function doPrint(){
+  document.title = printTitle();        // for browsers that don't fire beforeprint
+  window.print();
+  setTimeout(()=>{ document.title = BASE_TITLE; }, 1000);
+}
+$("#printBtn").onclick = ()=>doPrint();
 
 /* ---------------- keyboard navigation ----------------
    Arrow keys move between cells the way they do in Excel. In a text box
@@ -1336,7 +1352,7 @@ document.addEventListener("keydown", e=>{ if(e.key==="Escape") ref(false); });
 const nav = on => document.body.classList.toggle("nav", on);
 $("#menuBtn").onclick = ()=> nav(!document.body.classList.contains("nav"));
 $("#scrim").onclick = ()=> nav(false);
-$("#printBtn2").onclick = ()=>{ nav(false); window.print(); };
+$("#printBtn2").onclick = ()=>{ nav(false); doPrint(); };
 $("#side").addEventListener("click", e=>{        // close after picking a day or an action
   if(e.target.closest(".dayItem,.btn,.wk tr[data-d]")) nav(false);
 });
