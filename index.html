@@ -354,7 +354,6 @@
 
     <details class="sec fold" data-fold="tools">
       <summary>Tools</summary>
-      <button class="btn" id="copyPrev">Copy rows from previous day</button>
       <button class="btn" id="sendDay">Send this day to another device</button>
       <button class="btn" id="sendWeek">Send this week to another device</button>
       <button class="btn" id="exportCsv">Export CSV (all days)</button>
@@ -1131,15 +1130,6 @@ $("#clearDay").onclick = ()=>{
   day = getDay(current);                    // fresh blank, not written back until edited
   noteChange();                             // clearing is undoable too
   save(true); render(); toast("Cleared — Ctrl+Z to undo");
-};
-$("#copyPrev").onclick = ()=>{
-  const prior = Object.keys(DB.days).filter(d=>d<current && dayUsed(DB.days[d])).sort().pop();
-  if(!prior){ toast("No earlier day to copy from"); return; }
-  if(dayUsed(day) && !confirm("Replace this sheet with the rows from "+shortDate(prior)+"?")) return;
-  day.rows = DB.days[prior].rows.map(r=>({
-    so:r.so, tp:false, start:"", end:"", task:r.task, client:r.client, status:"", startManual:false
-  }));
-  commit(true); toast("Copied rows from "+shortDate(prior));
 };
 
 $("#exportCsv").onclick = ()=>{
