@@ -39,6 +39,19 @@
 
   .sec{margin-bottom:16px}
   .sec>h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  /* collapsible sections — occasional things, folded away by default */
+  details.fold{margin-bottom:8px}
+  details.fold>summary{
+    list-style:none;cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px;
+    margin:0 0 6px;padding:5px 6px;border-radius:5px;
+    font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)
+  }
+  details.fold>summary::-webkit-details-marker{display:none}
+  details.fold>summary::before{content:"\25B8";font-size:9px;transition:transform .12s}
+  details.fold[open]>summary::before{transform:rotate(90deg)}
+  details.fold>summary:hover{background:var(--head);color:var(--ink)}
+  /* don't rely on the engine's native collapsing — hide the content ourselves */
+  details.fold:not([open])>*:not(summary){display:none !important}
   .btn{
     display:block;width:100%;text-align:left;padding:6px 9px;margin-bottom:4px;border:1px solid var(--line);
     background:#fff;border-radius:5px;color:var(--ink)
@@ -76,6 +89,11 @@
   .wk td{padding:2px 4px;border-bottom:1px solid #eef0f2}
   .wk td:last-child{text-align:right;font-variant-numeric:tabular-nums}
   .wk tr.tot td{font-weight:700;border-top:1px solid var(--line);border-bottom:0}
+  .wk tr.sub td{
+    padding-top:9px;border-bottom:0;font-size:10px;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--muted)
+  }
+  .wk tr.task td{border-bottom:0;padding:1px 4px;color:#333}
   .wk tr.today td{background:#fdeef1}
 
   /* ---------- sheet ---------- */
@@ -238,6 +256,7 @@
     table.grid tfoot td:first-child{display:none}   /* the TP footnote */
     table.grid tfoot td#total{font-size:17px;min-width:0}
     .addRow{width:100% !important;padding:11px !important;font-size:14px;color:var(--muted)}
+    details.fold>summary{padding:11px 8px;font-size:12px}   /* a proper tap target */
     #refWrap{padding:0;align-items:flex-end}
     #refPanel{max-height:92vh;border-radius:12px 12px 0 0}
     table.refTbl{font-size:12px}
@@ -324,22 +343,17 @@
       <table class="wk" id="weekTbl"></table>
     </div>
 
-    <div class="sec">
-      <h4>Hours by task (week)</h4>
-      <table class="wk" id="taskTbl"></table>
-    </div>
-
-    <div class="sec" id="fileSec">
-      <h4>Data file</h4>
+    <details class="sec fold" id="fileSec" data-fold="data">
+      <summary>Data file</summary>
       <div class="fstat" id="fileStat">Not linked — data is stored in this browser only.</div>
       <button class="btn" id="linkExisting">Use existing data file…</button>
       <button class="btn" id="linkNew">Create new data file…</button>
       <button class="btn" id="reconnect" style="display:none">Reconnect data file</button>
       <button class="btn" id="unlink" style="display:none">Unlink data file</button>
-    </div>
+    </details>
 
-    <div class="sec">
-      <h4>Tools</h4>
+    <details class="sec fold" data-fold="tools">
+      <summary>Tools</summary>
       <button class="btn" id="copyPrev">Copy rows from previous day</button>
       <button class="btn" id="sendDay">Send this day to another device</button>
       <button class="btn" id="sendWeek">Send this week to another device</button>
@@ -348,14 +362,14 @@
       <button class="btn" id="importJson">Restore from backup…</button>
       <button class="btn danger" id="clearDay">Clear this day</button>
       <input type="file" id="fileIn" accept=".json,application/json" style="display:none">
-    </div>
+    </details>
 
-    <div class="sec">
-      <h4>Options</h4>
-      <label style="display:flex;gap:6px;align-items:center;font-size:12px">
+    <details class="sec fold" data-fold="options">
+      <summary>Options</summary>
+      <label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:2px 0">
         <input type="checkbox" id="allHours"> Show all 24 hours in time lists
       </label>
-    </div>
+    </details>
   </aside>
 
   <main id="main">
@@ -932,13 +946,15 @@ function renderSidebar(){
           <td>${t?t.toFixed(2):"–"}</td></tr>`;
   }
   wk+=`<tr class="tot"><td>Total</td><td>${wtot.toFixed(2)}</td></tr>`;
+
+  // hours by task, folded into the same panel rather than a second table
+  const keys=Object.keys(byTask).sort((a,b)=>byTask[b]-byTask[a]);
+  if(keys.length){
+    wk+=`<tr class="sub"><td colspan="2">By task</td></tr>`;
+    wk+=keys.map(k=>`<tr class="task"><td>${k}</td><td>${byTask[k].toFixed(2)}</td></tr>`).join("");
+  }
   $("#weekTbl").innerHTML=wk;
   $("#weekTbl").querySelectorAll("tr[data-d]").forEach(tr=> tr.onclick=()=>goto(tr.dataset.d));
-
-  const keys=Object.keys(byTask).sort((a,b)=>byTask[b]-byTask[a]);
-  $("#taskTbl").innerHTML = keys.length
-    ? keys.map(k=>`<tr><td>${k}</td><td>${byTask[k].toFixed(2)}</td></tr>`).join("")
-    : '<tr><td colspan="2" style="color:#6b7280">No hours this week</td></tr>';
 }
 function monthLabel(m){                       // "2026-08" -> "August 2026"
   return parseISO(m+"-01").toLocaleDateString(undefined,{month:"long",year:"numeric"});
@@ -1432,7 +1448,7 @@ setInterval(()=>{
 async function initFileLink(){
   if(!FSA){
     $("#fileSec").innerHTML =
-      '<h4>Data file</h4><div class="fstat">This browser can\'t link to a data file. ' +
+      '<summary>Data file</summary><div class="fstat">This browser can\'t link to a data file. ' +
       'Use Chrome or Edge for that, or keep using Backup / Restore below.</div>';
     return;
   }
@@ -1458,6 +1474,15 @@ async function initFileLink(){
 $("#logoSide").src = LOGO;
 $("#logoMain").src = LOGO;
 $("#allHours").checked = !!DB.settings.allHours;
+
+/* Remember which of the folded sections you left open. */
+DB.settings.folds = DB.settings.folds || {};
+document.querySelectorAll("details.fold").forEach(d=>{
+  const k=d.dataset.fold;
+  d.open = !!DB.settings.folds[k];
+  d.addEventListener("toggle", ()=>{ DB.settings.folds[k]=d.open; save(); });
+});
+
 undoReset();
 render();
 initFileLink();
