@@ -155,8 +155,8 @@
   col.c-st{width:74px} col.c-h{width:62px}
   tfoot td{border:1px solid var(--line);padding:5px 6px;font-weight:700;background:var(--head)}
 
-  .addRow{margin-top:8px}
-  #addRow[hidden]{display:none}              /* beats .btn's display:block */
+  /* padding rows are paper-only; specific enough to beat the phone card rule */
+  table.grid tbody tr.fill{display:none}
   /* reference popup */
   #refWrap{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
   #refWrap[hidden]{display:none}
@@ -270,7 +270,6 @@
     table.grid tfoot td{border:0;background:transparent;font-size:15px}
     table.grid tfoot td:first-child{display:none}   /* the TP footnote */
     table.grid tfoot td#total{font-size:17px;min-width:0}
-    .addRow{width:100% !important;padding:11px !important;font-size:14px;color:var(--muted)}
     details.fold>summary{padding:11px 8px;font-size:12px}   /* a proper tap target */
     #refWrap{padding:0;align-items:flex-end}
     #refPanel{max-height:92vh;border-radius:12px 12px 0 0}
@@ -283,7 +282,9 @@
   @page{size:portrait;margin:8mm}
   @media print{
     body{background:#fff}
-    #side,.addRow,.hint,.toast,.noprint{display:none !important}
+    #side,.hint,.toast,.noprint{display:none !important}
+    table.grid tbody tr.fill{display:table-row}   /* pad every printed sheet to PRINT_ROWS */
+    table.grid tbody tr.fill td{height:19px}
     /* Lay the printed page out in paper units, not viewport units. iOS lays
        print out at the device width, which squeezed the grid and pushed the
        total onto a second page. */
@@ -444,8 +445,6 @@
         </tfoot>
       </table>
 
-      <button class="btn addRow noprint" id="addRow" style="width:auto;padding:5px 12px"
-              title="All 26 rows are in use">+ Add another row</button>
 
     </div>
 
@@ -517,6 +516,8 @@ const STATUS  = ["","COMP","IP","WFP"];
 const UNPAID  = ["Lunch","Off"];          // excluded from Hours + Total, as in the workbook
 const ROWS_MIN = 12;                       // the sheet never shows fewer than this
 const ROWS_SPARE = 1;                      // always this many blank rows below the last entry
+const PRINT_ROWS = 20;                     // printed sheets are padded to this, so every day
+                                           // comes out the same length
 const KEY = "microage_timesheet_v1";
 
 /* ---------------- storage ---------------- */
@@ -769,8 +770,8 @@ function render(){
     tb.appendChild(buildRow(r,i,times,timeKey,isExtra));
   });
 
+  syncFillers();
   $("#total").textContent = dayTotal(day).toFixed(2);
-  $("#addRow").hidden = day.rows.some(r=>!rowUsed(r));   // only once every row is in use
   renderSidebar();
   buildLists();
 }
@@ -851,6 +852,20 @@ function buildRow(r, i, times, timeKey, isExtra){
     return tr;
 }
 
+/* Blank ruled rows that exist only on paper, so every printed day is the same
+   length however few entries it holds. They hold no controls, so they can't be
+   tabbed or arrowed into. */
+function syncFillers(){
+  const tb = $("#rows");
+  tb.querySelectorAll("tr.fill").forEach(t=>t.remove());
+  for(let i=day.rows.length; i<PRINT_ROWS; i++){
+    const tr = document.createElement("tr");
+    tr.className = "fill";
+    for(let c=0;c<8;c++) tr.appendChild(document.createElement("td"));
+    tb.appendChild(tr);
+  }
+}
+
 /* Add rows as the sheet fills up. Only ever appends — shrinking is left to the
    next full render, so a row can't vanish from under the cursor. */
 function growRows(){
@@ -863,11 +878,14 @@ function growRows(){
   const times = timeOptions();
   const timeKey = "times"+(DB.settings.allHours?"24":"");
   let blankSeen = day.rows.slice(0,before).some(r=>!rowUsed(r));
+  const firstFill = tb.querySelector("tr.fill");           // real rows go above the padding
   for(let i=before;i<want;i++){
     day.rows.push(blankRow());
-    tb.appendChild(buildRow(day.rows[i], i, times, timeKey, blankSeen));
+    const tr = buildRow(day.rows[i], i, times, timeKey, blankSeen);
+    if(firstFill) tb.insertBefore(tr, firstFill); else tb.appendChild(tr);
     blankSeen = true;
   }
+  syncFillers();
 }
 
 function cell(el,label){
@@ -959,7 +977,6 @@ function commit(rerender){
   }else{
     growRows();                                          // typing in the last row adds another
     $("#total").textContent = dayTotal(day).toFixed(2);
-    $("#addRow").hidden = day.rows.some(r=>!rowUsed(r));
     renderSidebar();
   }
 }
@@ -1187,7 +1204,13 @@ $("#rows").addEventListener("keydown", e=>{
     case "Enter": {
       const next=visibleRow(rows,ri+1,1);
       if(next) target=cellControl(next,col);
-      else if(e.key==="Enter"){ e.preventDefault(); $("#addRow").click(); return; }  // past the last row
+      else if(e.key==="Enter"){                        // past the last row: make another
+        e.preventDefault();
+        growRows();
+        const grown=visibleRow([...tr.parentNode.children], ri+1, 1);
+        if(grown) moveTo(cellControl(grown,col));
+        return;
+      }
       break;
     }
     case "ArrowUp": {
@@ -1230,7 +1253,6 @@ $("#printBtn2").onclick = ()=>{ nav(false); window.print(); };
 $("#side").addEventListener("click", e=>{        // close after picking a day or an action
   if(e.target.closest(".dayItem,.btn,.wk tr[data-d]")) nav(false);
 });
-$("#addRow").onclick = ()=>{ undoFlush(); day.rows.push(blankRow()); commit(true); };
 $("#undoBtn").onclick = ()=>undo();
 $("#redoBtn").onclick = ()=>redo();
 
