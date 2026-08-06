@@ -515,7 +515,8 @@ const LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAAB2CAYAAAAayXtB
 const TASKS   = ["","Onsite","Shop","Remote","Shadow","Project","Meeting","Training","Admin","PD","Lunch","Off"];
 const STATUS  = ["","COMP","IP","WFP"];
 const UNPAID  = ["Lunch","Off"];          // excluded from Hours + Total, as in the workbook
-const ROWS_DEFAULT = 26;                   // rows 8–33 in the workbook
+const ROWS_MIN = 12;                       // the sheet never shows fewer than this
+const ROWS_SPARE = 1;                      // always this many blank rows below the last entry
 const KEY = "microage_timesheet_v1";
 
 /* ---------------- storage ---------------- */
@@ -627,7 +628,7 @@ function toast(msg){
 /* ---------------- day model ---------------- */
 function blankRow(){ return {so:"",tp:false,start:"",end:"",task:"",client:"",status:"",startManual:false}; }
 function blankDay(date){
-  return {date, name:DB.settings.name, rows:Array.from({length:ROWS_DEFAULT},blankRow)};
+  return {date, name:DB.settings.name, rows:Array.from({length:ROWS_MIN},blankRow)};
 }
 function getDay(date,create){
   let d = DB.days[date];
@@ -636,6 +637,18 @@ function getDay(date,create){
 }
 function rowUsed(r){ return !!(r.so||r.end||r.task||r.client||r.status||(r.start&&r.startManual)); }
 function dayUsed(d){ return d.rows.some(rowUsed); }
+
+/* Keep the sheet as long as it needs to be: ROWS_MIN at minimum, and always a
+   blank row waiting below the last entry. Only trailing blanks are removed, so
+   nothing typed is ever discarded. */
+function fitRows(d){
+  let last=-1;
+  d.rows.forEach((r,i)=>{ if(rowUsed(r)) last=i; });
+  const want = Math.max(ROWS_MIN, last+1+ROWS_SPARE);
+  if(d.rows.length > want) d.rows.length = want;
+  while(d.rows.length < want) d.rows.push(blankRow());
+  return want;
+}
 
 /* Start times cascade from the previous row's end unless the user set one by hand. */
 function cascade(day){
@@ -734,6 +747,7 @@ let openWeeks = new Set([weekStart(current)]);    // payroll weeks expanded in t
 
 /* ---------------- rendering ---------------- */
 function render(){
+  fitRows(day);
   cascade(day);
   $("#fName").value = day.name || "";
   $("#fDate").value = current;
@@ -750,10 +764,25 @@ function render(){
 
   let blankSeen=false;
   day.rows.forEach((r,i)=>{
+    const isExtra = !rowUsed(r) && blankSeen;
+    if(!rowUsed(r)) blankSeen=true;
+    tb.appendChild(buildRow(r,i,times,timeKey,isExtra));
+  });
+
+  $("#total").textContent = dayTotal(day).toFixed(2);
+  $("#addRow").hidden = day.rows.some(r=>!rowUsed(r));   // only once every row is in use
+  renderSidebar();
+  buildLists();
+}
+
+/* One row of the grid. Kept separate from render() so a new row can be added
+   on its own when the sheet grows, without rebuilding the table under someone
+   who is mid-way through typing. */
+function buildRow(r, i, times, timeKey, isExtra){
     const tr = document.createElement("tr");
     const cls = [UNPAID.includes(r.task) ? "break" : (rowUsed(r) ? "filled" : "")];
     if(r.tp) cls.push("tpOn");
-    if(!rowUsed(r)){ if(blankSeen) cls.push("extra"); else blankSeen=true; }
+    if(isExtra) cls.push("extra");
     tr.className = cls.join(" ");
 
     tr.appendChild(cell(inputEl(r.so, "dlSo",
@@ -819,13 +848,26 @@ function render(){
     td.className="n"; td.dataset.label="Hours"; td.textContent = h==null ? "" : h.toFixed(2);
     tr.appendChild(td);
 
-    tb.appendChild(tr);
-  });
+    return tr;
+}
 
-  $("#total").textContent = dayTotal(day).toFixed(2);
-  $("#addRow").hidden = day.rows.some(r=>!rowUsed(r));   // only once every row is in use
-  renderSidebar();
-  buildLists();
+/* Add rows as the sheet fills up. Only ever appends — shrinking is left to the
+   next full render, so a row can't vanish from under the cursor. */
+function growRows(){
+  const before = day.rows.length;
+  let last=-1;
+  day.rows.forEach((r,i)=>{ if(rowUsed(r)) last=i; });
+  const want = Math.max(ROWS_MIN, last+1+ROWS_SPARE);
+  if(want <= before) return;
+  const tb = $("#rows");
+  const times = timeOptions();
+  const timeKey = "times"+(DB.settings.allHours?"24":"");
+  let blankSeen = day.rows.slice(0,before).some(r=>!rowUsed(r));
+  for(let i=before;i<want;i++){
+    day.rows.push(blankRow());
+    tb.appendChild(buildRow(day.rows[i], i, times, timeKey, blankSeen));
+    blankSeen = true;
+  }
 }
 
 function cell(el,label){
@@ -915,8 +957,9 @@ function commit(rerender){
       if(f) f.focus();
     }
   }else{
+    growRows();                                          // typing in the last row adds another
     $("#total").textContent = dayTotal(day).toFixed(2);
-  $("#addRow").hidden = day.rows.some(r=>!rowUsed(r));   // only once every row is in use
+    $("#addRow").hidden = day.rows.some(r=>!rowUsed(r));
     renderSidebar();
   }
 }
