@@ -119,6 +119,8 @@
   tr.filled td{background:#fff}
   tr.break td{background:#fafafa;color:#666}
   select.st-COMP{background:var(--ok)} select.st-IP{background:var(--ip)} select.st-WFP{background:var(--wfp)}
+  /* a start time set by hand, which no longer follows the row above */
+  table.grid select.pinned{box-shadow:inset 2px 0 0 var(--accent)}
   col.c-so{width:78px} col.c-tp{width:30px} col.c-t{width:96px} col.c-task{width:104px}
   col.c-st{width:74px} col.c-h{width:62px}
   tfoot td{border:1px solid var(--line);padding:5px 6px;font-weight:700;background:var(--head)}
@@ -269,6 +271,7 @@
       appearance:none;-webkit-appearance:none;border:0;background:transparent !important;padding:2px 4px
     }
     td.tp button{color:#000;text-align:center}
+    table.grid select.pinned{box-shadow:none}   /* screen-only marker */
     .fld input,.ro{border-bottom:1px solid #999;background:transparent}
     tr,td,th{page-break-inside:avoid}
     tfoot td{background:#efeff2 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -443,7 +446,11 @@
       <li><b>COMP</b> — Complete &nbsp;·&nbsp; <b>IP</b> — In Progress &nbsp;·&nbsp; <b>WFP</b> — Waiting for Parts</li>
       <li><b>TP</b> — mark with <b>*</b> once the time is entered in Tigerpaw.
           Space bar, click or tap toggles it.</li>
-      <li>Times run in 15 minute steps (0.25). Start fills in from the row above, so you only enter End times.</li>
+      <li>Times run in 15 minute steps (0.25). Start fills in from the row above, so you
+          only enter End times.</li>
+      <li>Setting a <b>Start</b> by hand pins that row — it stops following the row above,
+          and shows a red edge. To unpin it, clear the Start: press <b>Delete</b>, or pick the
+          blank entry at the top of the list.</li>
       <li><b>Lunch</b>, <b>Off</b>, and any row with no <b>Task</b> chosen don't count
           toward the daily total.</li>
       <li><b>Getting around:</b> arrow keys move between cells and <b>Enter</b> moves down,
@@ -733,10 +740,20 @@ function render(){
     tp.appendChild(tpBtn);
     tr.appendChild(tp);
 
-    tr.appendChild(cell(selectEl(times, r.start, v=>{
-      r.start=v; r.startManual = !!v;   // blank it again to resume auto-fill
+    const startSel = selectEl(times, r.start, v=>{
+      /* Only count it as set by hand if it differs from what the row above
+         would have given, so picking the same time doesn't silently pin the
+         row. Blank it to go back to following the row above. */
+      const auto = i===0 ? null : (day.rows[i-1].end || "");
+      r.start=v;
+      r.startManual = !!v && v!==auto;
       commit(true);
-    }, fmt12, timeKey), "Start"));
+    }, fmt12, timeKey);
+    if(r.startManual && i>0){        // row 0 is expected to be typed in; the rest aren't
+      startSel.classList.add("pinned");
+      startSel.title="Set by hand, so it no longer follows the row above. Clear it to go back to automatic.";
+    }
+    tr.appendChild(cell(startSel, "Start"));
 
     tr.appendChild(cell(selectEl(times, r.end, v=>{ r.end=v; commit(true); }, fmt12, timeKey), "End"));
 
@@ -1015,6 +1032,17 @@ $("#rows").addEventListener("keydown", e=>{
     return;
   }
   snapRow(ri);                              // first key in this row: capture it pre-edit
+
+  /* Delete empties a dropdown — the only way to unpin a hand-set Start so it
+     follows the row above again, and awkward to find in the list otherwise. */
+  if((e.key==="Delete"||e.key==="Backspace") && el.tagName==="SELECT"){
+    if(el.value!==""){
+      el.value="";
+      el.dispatchEvent(new Event("change",{bubbles:true}));
+    }
+    e.preventDefault();
+    return;
+  }
 
   /* F2 drops into the value without wiping it, as in Excel: caret to the end
      of a text cell, open the list on a dropdown. */
