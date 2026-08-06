@@ -247,7 +247,17 @@
   @media print{
     body{background:#fff}
     #side,.addRow,.hint,.toast,.noprint{display:none !important}
-    #main{padding:0}
+    /* Lay the printed page out in paper units, not viewport units. iOS lays
+       print out at the device width, which squeezed the grid and pushed the
+       total onto a second page. */
+    html,body{width:194mm;margin:0;padding:0}
+    #app{display:block}
+    #main{padding:0;width:194mm}
+    .sheet{width:194mm;max-width:194mm}
+    table.grid{width:100%;table-layout:fixed}
+    table.grid tfoot{display:table-row-group}   /* not a repeating page footer */
+    .sheet,table.grid{page-break-inside:auto}
+    table.grid tfoot tr{page-break-before:avoid}
     .print-only{display:block}
     .sheet{border:0;box-shadow:none;border-radius:0;padding:0;max-width:none;font-size:9.5pt}
     .sheetHead{padding-bottom:6px;margin-bottom:8px}
@@ -292,6 +302,10 @@
         <button class="btn" id="nextDay" title="Next day">Next &rsaquo;</button>
       </div>
       <button class="btn" id="todayBtn">Go to today</button>
+      <div class="row2">
+        <button class="btn" id="undoBtn" title="Ctrl+Z">Undo</button>
+        <button class="btn" id="redoBtn" title="Ctrl+Y">Redo</button>
+      </div>
       <button class="btn primary" id="printBtn">Print / PDF</button>
       <button class="btn" id="refBtn">? What goes in each column</button>
     </div>
@@ -432,7 +446,9 @@
       <li><b>Editing:</b> arriving at a cell selects it, so typing replaces what's there.
           Press <b>F2</b> (or <b>End</b>) to put the cursor in the text and edit it instead.
           In a dropdown, type the first letter or press <b>Alt+&darr;</b> to open the list.</li>
-      <li><b>Escape</b> puts the row back to how it was when you moved into it.</li>
+      <li><b>Escape</b> puts the row back to how it was when you moved into it.
+          <b>Ctrl+Z</b> undoes across the whole day, <b>Ctrl+Y</b> redoes — or use the
+          Undo and Redo buttons. Clearing a day can be undone too.</li>
     </ul>
   </div>
 </div>
@@ -550,6 +566,57 @@ function rowHours(r){
 }
 function dayTotal(day){
   return day.rows.reduce((s,r)=> s + (rowHours(r)||0), 0);
+}
+
+/* ---------------- undo / redo ----------------
+   Snapshots of the current day. Rapid typing coalesces into one step, so
+   Ctrl+Z takes back a whole entry rather than one character at a time. */
+const UNDO_MAX = 60, COALESCE_MS = 500;
+let undoStack=[], redoStack=[], baseline=null, undoTimer=null, pending=false;
+
+const snap = d => ({name:d.name, rows:JSON.parse(JSON.stringify(d.rows))});
+
+function undoReset(){
+  undoStack=[]; redoStack=[]; pending=false;
+  clearTimeout(undoTimer);
+  baseline = snap(day);
+}
+function undoFlush(){                          // close off the current burst
+  if(!pending) return;
+  clearTimeout(undoTimer); pending=false;
+  undoStack.push(baseline);
+  if(undoStack.length>UNDO_MAX) undoStack.shift();
+  redoStack=[];
+  baseline = snap(day);
+}
+function noteChange(){
+  pending=true;
+  clearTimeout(undoTimer);
+  undoTimer=setTimeout(undoFlush, COALESCE_MS);
+}
+function applyState(s){
+  day = {date:current, name:s.name, rows:JSON.parse(JSON.stringify(s.rows))};
+  DB.days[current]=day;
+  if(!dayUsed(day) && !day.name) delete DB.days[current];
+  markDirty(current);
+  rowSnap=null;
+  save(); render();
+}
+function undo(){
+  undoFlush();
+  if(!undoStack.length){ toast("Nothing to undo"); return; }
+  redoStack.push(snap(day));
+  applyState(undoStack.pop());
+  baseline = snap(day);
+  toast("Undo");
+}
+function redo(){
+  undoFlush();
+  if(!redoStack.length){ toast("Nothing to redo"); return; }
+  undoStack.push(snap(day));
+  applyState(redoStack.pop());
+  baseline = snap(day);
+  toast("Redo");
 }
 
 /* ---------------- state ---------------- */
@@ -682,6 +749,7 @@ function selectEl(opts, val, onchange, label, key){
 function commit(rerender){
   DB.days[current] = day;
   markDirty(current);
+  noteChange();
   if(!dayUsed(day) && !day.name) delete DB.days[current];
   save();
   if(rerender){
@@ -809,6 +877,7 @@ function goto(date){
   openWeeks.add(weekStart(date));            // keep the week you jump to expanded
   rowSnap=null;                              // snapshots don't carry across days
   day=getDay(date,true);
+  undoReset();                               // undo history is per day
   render();
 }
 
@@ -938,6 +1007,8 @@ $("#side").addEventListener("click", e=>{        // close after picking a day or
   if(e.target.closest(".dayItem,.btn,.wk tr[data-d]")) nav(false);
 });
 $("#addRow").onclick = ()=>{ day.rows.push(blankRow()); commit(true); };
+$("#undoBtn").onclick = ()=>undo();
+$("#redoBtn").onclick = ()=>redo();
 
 $("#allHours").onchange = e=>{ DB.settings.allHours=e.target.checked; save(true); render(); };
 
@@ -946,7 +1017,8 @@ $("#clearDay").onclick = ()=>{
   delete DB.days[current];                  // drop the saved record, not just the rows
   markDirty(current);                       // so the deletion reaches the linked file
   day = getDay(current);                    // fresh blank, not written back until edited
-  save(true); render(); toast("Cleared");
+  noteChange();                             // clearing is undoable too
+  save(true); render(); toast("Cleared — Ctrl+Z to undo");
 };
 $("#copyPrev").onclick = ()=>{
   const prior = Object.keys(DB.days).filter(d=>d<current && dayUsed(DB.days[d])).sort().pop();
@@ -1001,6 +1073,11 @@ document.addEventListener("keydown", e=>{
   if((e.ctrlKey||e.metaKey) && e.key==="p"){ /* let the browser print */ }
   if(e.altKey && e.key==="ArrowLeft"){ e.preventDefault(); goto(shiftISO(current,-1)); }
   if(e.altKey && e.key==="ArrowRight"){ e.preventDefault(); goto(shiftISO(current,1)); }
+  if(e.ctrlKey||e.metaKey){
+    const k=e.key.toLowerCase();
+    if(k==="z" && !e.shiftKey){ e.preventDefault(); undo(); }
+    else if((k==="z" && e.shiftKey) || k==="y"){ e.preventDefault(); redo(); }
+  }
 });
 window.addEventListener("beforeunload", ()=>save(true));
 
@@ -1251,6 +1328,7 @@ async function initFileLink(){
 $("#logoSide").src = LOGO;
 $("#logoMain").src = LOGO;
 $("#allHours").checked = !!DB.settings.allHours;
+undoReset();
 render();
 initFileLink();
 
