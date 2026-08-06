@@ -50,7 +50,21 @@
   .row2{display:flex;gap:4px}
   .row2 .btn{margin-bottom:4px}
 
-  #dayList{max-height:230px;overflow-y:auto;border:1px solid var(--line);border-radius:5px}
+  #dayList{max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:5px}
+  .monthHead{
+    display:flex;align-items:center;gap:6px;padding:6px 8px;cursor:pointer;user-select:none;
+    background:var(--head);border-bottom:1px solid var(--line);font-size:11.5px;font-weight:600;
+    position:sticky;top:0;z-index:1
+  }
+  .monthHead:hover{background:#e6e7ec}
+  .monthDiv{
+    padding:5px 8px 3px;font-size:10px;text-transform:uppercase;letter-spacing:.07em;
+    color:var(--muted);background:#fff;border-bottom:1px solid #eceef1
+  }
+  .monthHead .car{color:var(--muted);font-size:10px;width:9px}
+  .monthHead .mn{flex:1}
+  .monthHead small{color:var(--muted);font-variant-numeric:tabular-nums}
+  #dayList .dayItem{padding-left:23px}       /* indented under its month header */
   .dayItem{display:flex;justify-content:space-between;gap:6px;padding:5px 8px;border-bottom:1px solid #eceef1;cursor:pointer}
   .dayItem:last-child{border-bottom:0}
   .dayItem:hover{background:#f0f1f4}
@@ -278,7 +292,7 @@
     </div>
 
     <div class="sec">
-      <h4>This week</h4>
+      <h4>This week (Sun&ndash;Sat)</h4>
       <table class="wk" id="weekTbl"></table>
     </div>
 
@@ -302,8 +316,7 @@
       <button class="btn" id="exportCsv">Export CSV (all days)</button>
       <button class="btn" id="exportJson">Backup all data (JSON)</button>
       <button class="btn" id="importJson">Restore from backup…</button>
-      <button class="btn danger" id="clearDay">Clear this sheet</button>
-      <button class="btn danger" id="deleteDay">Delete this day</button>
+      <button class="btn danger" id="clearDay">Clear this day</button>
       <input type="file" id="fileIn" accept=".json,application/json" style="display:none">
     </div>
 
@@ -525,6 +538,7 @@ function dayTotal(day){
 /* ---------------- state ---------------- */
 let current = todayISO();
 let day = getDay(current,true);
+let openWeeks = new Set([weekStart(current)]);    // payroll weeks expanded in the sidebar list
 
 /* ---------------- rendering ---------------- */
 function render(){
@@ -678,12 +692,37 @@ function renderSidebar(){
   if(!dates.length){ list.innerHTML='<div class="empty">No saved days yet</div>'; }
   else{
     list.innerHTML="";
-    dates.forEach(d=>{
-      const div=document.createElement("div");
-      div.className="dayItem"+(d===current?" on":"");
-      div.innerHTML=`<span>${shortDate(d)}</span><small>${dayTotal(DB.days[d]).toFixed(2)}</small>`;
-      div.onclick=()=>goto(d);
-      list.appendChild(div);
+    /* grouped by payroll week (Sun–Sat), newest first, with a month divider
+       whenever the month changes — keeps the list short however many days pile up */
+    const order=[], byWeek={};
+    dates.forEach(d=>{ const w=weekStart(d); if(!byWeek[w]){ byWeek[w]=[]; order.push(w); } byWeek[w].push(d); });
+    let lastMonth=null;
+    order.forEach(w=>{
+      const m=w.slice(0,7);
+      if(m!==lastMonth){
+        lastMonth=m;
+        const md=document.createElement("div");
+        md.className="monthDiv"; md.textContent=monthLabel(m);
+        list.appendChild(md);
+      }
+      const open = openWeeks.has(w);
+      const tot = byWeek[w].reduce((s,d)=>s+dayTotal(DB.days[d]),0);
+      const h=document.createElement("div");
+      h.className="monthHead"+(open?" open":"");
+      h.innerHTML=`<span class="car">${open?"&#9662;":"&#9656;"}</span>`+
+                  `<span class="mn">${weekLabel(w)}</span>`+
+                  `<small>${tot.toFixed(2)}</small>`;
+      h.title=`Week of ${longDate(w)} — ${byWeek[w].length} day${byWeek[w].length>1?"s":""}`;
+      h.onclick=()=>{ open ? openWeeks.delete(w) : openWeeks.add(w); renderSidebar(); };
+      list.appendChild(h);
+      if(!open) return;
+      byWeek[w].forEach(d=>{
+        const div=document.createElement("div");
+        div.className="dayItem"+(d===current?" on":"");
+        div.innerHTML=`<span>${shortDate(d)}</span><small>${dayTotal(DB.days[d]).toFixed(2)}</small>`;
+        div.onclick=()=>goto(d);
+        list.appendChild(div);
+      });
     });
   }
 
@@ -709,15 +748,25 @@ function renderSidebar(){
     ? keys.map(k=>`<tr><td>${k}</td><td>${byTask[k].toFixed(2)}</td></tr>`).join("")
     : '<tr><td colspan="2" style="color:#6b7280">No hours this week</td></tr>';
 }
-function weekStart(iso){                      // Monday
-  const d=parseISO(iso); const dow=(d.getDay()+6)%7;
-  return shiftISO(iso,-dow);
+function monthLabel(m){                       // "2026-08" -> "August 2026"
+  return parseISO(m+"-01").toLocaleDateString(undefined,{month:"long",year:"numeric"});
+}
+function weekLabel(w){                        // "2026-08-02" -> "Aug 2 – 8"
+  const a=parseISO(w), b=parseISO(shiftISO(w,6));
+  const md={month:"short",day:"numeric"};
+  const from=a.toLocaleDateString(undefined,md);
+  const to=b.toLocaleDateString(undefined, a.getMonth()===b.getMonth()?{day:"numeric"}:md);
+  return `${from} – ${to}`;
+}
+function weekStart(iso){                      // Sunday — payroll week runs Sun–Sat
+  return shiftISO(iso, -parseISO(iso).getDay());
 }
 
 /* ---------------- navigation ---------------- */
 function goto(date){
   save(true);
   current=date;
+  openWeeks.add(weekStart(date));            // keep the week you jump to expanded
   day=getDay(date,true);
   render();
 }
@@ -754,15 +803,11 @@ $("#addRow").onclick = ()=>{ day.rows.push(blankRow()); commit(true); };
 $("#allHours").onchange = e=>{ DB.settings.allHours=e.target.checked; save(true); render(); };
 
 $("#clearDay").onclick = ()=>{
-  if(!confirm("Clear every entry on this sheet? This cannot be undone.")) return;
-  day.rows = Array.from({length:ROWS_DEFAULT},blankRow);
-  commit(true); toast("Sheet cleared");
-};
-$("#deleteDay").onclick = ()=>{
-  if(!confirm(`Delete the saved sheet for ${longDate(current)}?`)) return;
-  delete DB.days[current];
-  day = getDay(current,true);
-  save(true); render(); toast("Day deleted");
+  if(dayUsed(day) && !confirm(`Clear ${longDate(current)}? Everything on this sheet will be removed.`)) return;
+  delete DB.days[current];                  // drop the saved record, not just the rows
+  markDirty(current);                       // so the deletion reaches the linked file
+  day = getDay(current);                    // fresh blank, not written back until edited
+  save(true); render(); toast("Cleared");
 };
 $("#copyPrev").onclick = ()=>{
   const prior = Object.keys(DB.days).filter(d=>d<current && dayUsed(DB.days[d])).sort().pop();
