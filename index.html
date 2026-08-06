@@ -416,6 +416,9 @@
       <li><b>TP</b> — tap or click to mark the time as entered in TP.</li>
       <li>Times run in 15 minute steps (0.25). Start fills in from the row above, so you only enter End times.</li>
       <li><b>Lunch</b> and <b>Off</b> don't count toward the daily total.</li>
+      <li><b>Getting around:</b> arrow keys move between cells and <b>Enter</b> moves down,
+          as in Excel. In a dropdown, <b>Alt+&darr;</b> opens the list or just type the first
+          letter. <b>Tab</b> moves right. <b>Alt+&larr;/&rarr;</b> changes day.</li>
     </ul>
   </div>
 </div>
@@ -795,6 +798,62 @@ $("#prevDay").onclick = ()=>goto(shiftISO(current,-1));
 $("#nextDay").onclick = ()=>goto(shiftISO(current,1));
 $("#todayBtn").onclick = ()=>goto(todayISO());
 $("#printBtn").onclick = ()=>window.print();
+
+/* ---------------- keyboard navigation ----------------
+   Arrow keys move between cells the way they do in Excel. In a text box
+   left/right move the caret first and only leave the cell at the ends;
+   in a dropdown they move cells, with Alt+Down opening the list. */
+function cellControl(tr,col){
+  return tr && tr.children[col] ? tr.children[col].querySelector("input,select") : null;
+}
+function visibleRow(rows,i,step){
+  for(; i>=0 && i<rows.length; i+=step){
+    if(rows[i].offsetParent!==null) return rows[i];       // skips hidden spare cards on phones
+  }
+  return null;
+}
+function moveTo(el){
+  if(!el) return false;
+  el.focus();
+  if(el.tagName==="INPUT" && el.select) el.select();      // ready to overtype, as Excel does
+  return true;
+}
+$("#rows").addEventListener("keydown", e=>{
+  const el=e.target;
+  if(!el.matches || !el.matches("input,select")) return;
+  if(e.altKey || e.ctrlKey || e.metaKey) return;          // Alt+Down opens a list, Alt+arrows change day
+  const td=el.closest("td"), tr=td.closest("tr");
+  const rows=[...tr.parentNode.children];
+  const ri=rows.indexOf(tr), col=[...tr.children].indexOf(td);
+  const isText = el.tagName==="INPUT";
+  let target=null;
+
+  switch(e.key){
+    case "ArrowDown":
+    case "Enter": {
+      const next=visibleRow(rows,ri+1,1);
+      if(next) target=cellControl(next,col);
+      else if(e.key==="Enter"){ $("#addRow").click(); return; }   // keep going past the last row
+      break;
+    }
+    case "ArrowUp": {
+      const prev=visibleRow(rows,ri-1,-1);
+      if(prev) target=cellControl(prev,col);
+      break;
+    }
+    case "ArrowRight":
+      if(isText && el.selectionStart!==el.value.length) return;   // caret first
+      for(let c=col+1;c<tr.children.length;c++){ const t=cellControl(tr,c); if(t){ target=t; break; } }
+      break;
+    case "ArrowLeft":
+      if(isText && el.selectionStart!==0) return;
+      for(let c=col-1;c>=0;c--){ const t=cellControl(tr,c); if(t){ target=t; break; } }
+      break;
+    default: return;
+  }
+  if(moveTo(target)) e.preventDefault();
+  else if(e.key==="Enter") e.preventDefault();
+});
 
 /* reference popup */
 function ref(show){
