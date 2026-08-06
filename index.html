@@ -538,36 +538,27 @@ function timeOptions(){
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
               (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
 
-async function download(name, text, type){
-  const blob = new Blob([text], {type:type+";charset=utf-8"});
-
-  /* iOS ignores an anchor's download attribute for blob URLs, so route it
-     through the share sheet — "Save to Files" lands it in iCloud or on the
-     device, and Mail sends it straight off. */
-  if(isIOS && navigator.canShare){
+/* iOS only accepts certain MIME types for file sharing and refuses
+   application/json, so offer the same bytes as plain text too. */
+async function shareFile(blob, name){
+  if(!isIOS || !navigator.canShare) return false;
+  for(const type of [blob.type, "text/plain"]){
     try{
-      const file = new File([blob], name, {type:blob.type});
-      if(navigator.canShare({files:[file]})){
-        await navigator.share({files:[file], title:name});
-        toast("Shared "+name);
-        return;
-      }
+      const file = new File([blob], name, {type});
+      if(!navigator.canShare({files:[file]})) continue;
+      await navigator.share({files:[file], title:name});
+      return true;
     }catch(e){
-      if(e.name==="AbortError") return;            // user dismissed the sheet
-      console.error(e);                            // anything else: fall through
+      if(e.name==="AbortError") return true;       // dismissed on purpose
+      console.error(e);
     }
   }
+  return false;
+}
 
-  /* Last resort on iOS, where the anchor below would do nothing at all:
-     open the file so it can be saved or shared from Safari itself. */
-  if(isIOS){
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, "_blank");
-    setTimeout(()=>URL.revokeObjectURL(url), 30000);
-    if(w) alert("Your backup opened in a new tab. Use Safari's share button to save it to Files.");
-    else  alert("Couldn't save on this device. Allow pop-ups, or take the backup from Edge or Chrome on a computer.");
-    return;
-  }
+async function download(name, text, type){
+  const blob = new Blob([text], {type:type+";charset=utf-8"});
+  if(await shareFile(blob, name)) return;
 
   try{
     const url = URL.createObjectURL(blob);
@@ -577,7 +568,8 @@ async function download(name, text, type){
     a.click();
     a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 10000);
-    toast("Saved "+name);
+    if(isIOS) alert("Saved as "+name+"\n\nIt's in the Files app under Downloads. Open it there to mail it or move it where you want.");
+    else toast("Saved "+name);
   }catch(e){
     console.error(e);
     alert("Could not save the file: "+e.message);
