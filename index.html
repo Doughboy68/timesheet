@@ -109,8 +109,13 @@
     width:100%;border:0;background:transparent;font:inherit;padding:3px 5px;color:inherit
   }
   table.grid input:focus,table.grid select:focus{outline:2px solid #b9c6f5;outline-offset:-2px;background:#fbfcff}
-  td.tp{text-align:center;cursor:pointer;user-select:none;font-weight:700;color:var(--accent)}
-  td.tp:hover{background:#f6f7f9}
+  td.tp{padding:0}
+  td.tp button{
+    width:100%;height:100%;min-height:22px;border:0;background:transparent;
+    font:inherit;font-weight:700;color:var(--accent);cursor:pointer;line-height:1
+  }
+  td.tp button:hover{background:#f6f7f9}
+  td.tp button:focus-visible{outline:2px solid #b9c6f5;outline-offset:-2px;background:#fbfcff}
   tr.filled td{background:#fff}
   tr.break td{background:#fafafa;color:#666}
   select.st-COMP{background:var(--ok)} select.st-IP{background:var(--ip)} select.st-WFP{background:var(--wfp)}
@@ -216,8 +221,12 @@
       font-size:16px;padding:7px 6px;border:1px solid var(--line);border-radius:6px;background:#fff
     }
     td.tp{justify-content:flex-start}
-    td.tp::after{content:"tap to toggle";font-size:10px;color:var(--muted)}
-    tr.tpOn td.tp::after{content:""}
+    td.tp button{
+      width:auto;min-width:52px;min-height:34px;border:1px solid var(--line);
+      border-radius:6px;background:#fff;font-size:16px
+    }
+    td.tp::after{content:"not entered";font-size:10px;color:var(--muted)}
+    tr.tpOn td.tp::after{content:"entered in Tigerpaw";color:var(--accent)}
     table.grid tfoot tr{
       display:flex;align-items:center;justify-content:flex-start;gap:8px;
       border:1px solid var(--line);border-radius:8px;background:var(--head);padding:12px
@@ -245,9 +254,10 @@
     .sheetHead .ttl h1{font-size:15pt}
     table.grid td{height:19px}
     table.grid th{font-size:9pt;padding:3px 5px;background:#efeff2 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    table.grid input,table.grid select{
+    table.grid input,table.grid select,table.grid button{
       appearance:none;-webkit-appearance:none;border:0;background:transparent !important;padding:2px 4px
     }
+    td.tp button{color:#000;text-align:center}
     .fld input,.ro{border-bottom:1px solid #999;background:transparent}
     tr,td,th{page-break-inside:avoid}
     tfoot td{background:#efeff2 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -359,7 +369,7 @@
         <thead>
           <tr>
             <th title="Service Order Number">S/O#</th>
-            <th title="Time entered in TP — click the cell to toggle">TP</th>
+            <th title="Tigerpaw — mark once the time is entered in the ticketing system">TP</th>
             <th title="Fills in from the row above. Pick a time to override it; clear it to go back to automatic.">Start Time</th>
             <th title="The only time you normally need to enter">End Time</th>
             <th title="Onsite, Shop, Remote, Shadow, Project, Meeting, Training, Admin, PD, Lunch, Off">Task</th>
@@ -413,7 +423,8 @@
     </table>
     <ul class="refNotes">
       <li><b>COMP</b> — Complete &nbsp;·&nbsp; <b>IP</b> — In Progress &nbsp;·&nbsp; <b>WFP</b> — Waiting for Parts</li>
-      <li><b>TP</b> — tap or click to mark the time as entered in TP.</li>
+      <li><b>TP</b> — mark with <b>*</b> once the time is entered in Tigerpaw.
+          Space bar, click or tap toggles it.</li>
       <li>Times run in 15 minute steps (0.25). Start fills in from the row above, so you only enter End times.</li>
       <li><b>Lunch</b> and <b>Off</b> don't count toward the daily total.</li>
       <li><b>Getting around:</b> arrow keys move between cells and <b>Enter</b> moves down,
@@ -576,9 +587,15 @@ function render(){
       }), "S/O#"));
 
     const tp = document.createElement("td");
-    tp.className="tp"; tp.dataset.label="TP"; tp.textContent = r.tp ? "*" : "";
-    tp.title = "Time entered in TP — click to toggle";
-    tp.onclick = ()=>{ r.tp=!r.tp; commit(true); };
+    tp.className="tp"; tp.dataset.label="TP";
+    const tpBtn = document.createElement("button");
+    tpBtn.type="button"; tpBtn.textContent = r.tp ? "*" : "";
+    tpBtn.setAttribute("role","checkbox");
+    tpBtn.setAttribute("aria-checked", r.tp ? "true" : "false");
+    tpBtn.setAttribute("aria-label","Entered in Tigerpaw");
+    tpBtn.title = "Entered in Tigerpaw — space bar or click to toggle";
+    tpBtn.onclick = ()=>{ r.tp=!r.tp; commit(true); };
+    tp.appendChild(tpBtn);
     tr.appendChild(tp);
 
     tr.appendChild(cell(selectEl(times, r.start, v=>{
@@ -674,7 +691,7 @@ function commit(rerender){
     render();
     if(pos){
       const tr=$("#rows").children[pos.r];
-      const f = tr && tr.children[pos.c] && tr.children[pos.c].querySelector("input,select");
+      const f = tr && tr.children[pos.c] && tr.children[pos.c].querySelector("input,select,button");
       if(f) f.focus();
     }
   }else{
@@ -804,7 +821,7 @@ $("#printBtn").onclick = ()=>window.print();
    left/right move the caret first and only leave the cell at the ends;
    in a dropdown they move cells, with Alt+Down opening the list. */
 function cellControl(tr,col){
-  return tr && tr.children[col] ? tr.children[col].querySelector("input,select") : null;
+  return tr && tr.children[col] ? tr.children[col].querySelector("input,select,button") : null;
 }
 function visibleRow(rows,i,step){
   for(; i>=0 && i<rows.length; i+=step){
@@ -820,7 +837,7 @@ function moveTo(el){
 }
 $("#rows").addEventListener("keydown", e=>{
   const el=e.target;
-  if(!el.matches || !el.matches("input,select")) return;
+  if(!el.matches || !el.matches("input,select,button")) return;
   if(e.altKey || e.ctrlKey || e.metaKey) return;          // Alt+Down opens a list, Alt+arrows change day
   const td=el.closest("td"), tr=td.closest("tr");
   const rows=[...tr.parentNode.children];
@@ -833,7 +850,7 @@ $("#rows").addEventListener("keydown", e=>{
     case "Enter": {
       const next=visibleRow(rows,ri+1,1);
       if(next) target=cellControl(next,col);
-      else if(e.key==="Enter"){ $("#addRow").click(); return; }   // keep going past the last row
+      else if(e.key==="Enter"){ e.preventDefault(); $("#addRow").click(); return; }  // past the last row
       break;
     }
     case "ArrowUp": {
