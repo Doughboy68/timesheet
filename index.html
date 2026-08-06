@@ -406,7 +406,7 @@
             <th title="Fills in from the row above. Pick a time to override it; clear it to go back to automatic.">Start Time</th>
             <th title="The only time you normally need to enter">End Time</th>
             <th title="Onsite, Shop, Remote, Shadow, Project, Meeting, Training, Admin, PD, Lunch, Off">Task</th>
-            <th title="Client name — or Service/Team/Management for a Meeting, OEM for Training, reason for Off">Client/Type</th>
+            <th title="Client name — or Service/Team/Management for a Meeting, OEM for Training, reason for Off">Client/Description</th>
             <th title="COMP = Complete · IP = In Progress · WFP = Waiting for Parts">Status</th>
             <th style="text-align:right" title="Worked out from Start and End. Lunch and Off are not counted.">Hours</th>
           </tr>
@@ -441,7 +441,7 @@
       <button id="refClose" aria-label="Close">&times;</button>
     </div>
     <table class="refTbl">
-      <thead><tr><th>Task</th><th>S/O #</th><th>Client/Type</th><th>Status</th></tr></thead>
+      <thead><tr><th>Task</th><th>S/O #</th><th>Client/Description</th><th>Status</th></tr></thead>
       <tbody>
         <tr><td>Onsite</td><td>Number</td><td>Client name</td><td>COMP, IP, WFP</td></tr>
         <tr><td>Shop</td><td>Number</td><td>Client name</td><td>COMP, IP, WFP</td></tr>
@@ -1133,7 +1133,7 @@ $("#clearDay").onclick = ()=>{
 };
 
 $("#exportCsv").onclick = ()=>{
-  const head=["Date","S/O#","TP","Start","End","Task","Client/Type","Status","Hours"];
+  const head=["Date","S/O#","TP","Start","End","Task","Client/Description","Status","Hours"];
   const lines=[head.join(",")];
   Object.keys(DB.days).sort().forEach(d=>{
     const dd=DB.days[d]; cascade(dd);
