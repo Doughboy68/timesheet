@@ -338,6 +338,8 @@
     <div class="sec">
       <h4>Tools</h4>
       <button class="btn" id="copyPrev">Copy rows from previous day</button>
+      <button class="btn" id="sendDay">Send this day to another device</button>
+      <button class="btn" id="sendWeek">Send this week to another device</button>
       <button class="btn" id="exportCsv">Export CSV (all days)</button>
       <button class="btn" id="exportJson">Backup all data (JSON)</button>
       <button class="btn" id="importJson">Restore from backup…</button>
@@ -1097,6 +1099,24 @@ $("#exportCsv").onclick = ()=>{
   });
   download("timesheet-"+todayISO()+".csv", "﻿"+lines.join("\r\n"), "text/csv");  // BOM so Excel reads UTF-8
 };
+/* A partial backup: only the dates asked for. Restoring it touches those
+   dates and nothing else, so a phone holding a couple of days can be merged
+   into a desktop holding months without carrying stale copies across. */
+function exportDays(dates, name){
+  const days={};
+  dates.forEach(d=>{ if(DB.days[d] && dayUsed(DB.days[d])) days[d]=DB.days[d]; });
+  const n=Object.keys(days).length;
+  if(!n){ toast("Nothing to send — no entries for those dates"); return; }
+  save(true);
+  download(name, JSON.stringify({version:1, partial:true, settings:DB.settings, days}, null, 2), "application/json");
+}
+$("#sendDay").onclick = ()=> exportDays([current], "timesheet-"+current+".json");
+$("#sendWeek").onclick = ()=>{
+  const mon=weekStart(current);
+  const week=Array.from({length:7},(_,i)=>shiftISO(mon,i));
+  exportDays(week, "timesheet-week-"+mon+".json");
+};
+
 $("#exportJson").onclick = ()=>{
   save(true);
   download("timesheet-backup-"+todayISO()+".json", JSON.stringify(DB,null,2), "application/json");
@@ -1109,9 +1129,13 @@ $("#fileIn").onchange = e=>{
     try{
       const d=JSON.parse(fr.result);
       if(!d || typeof d!=="object" || !d.days) throw new Error("Not a timesheet backup");
-      const mine=Object.keys(DB.days).length, theirs=Object.keys(d.days).length;
-      if(!confirm(`Restore ${theirs} day(s) from this backup? Days with the same date will be replaced (you currently have ${mine}).`)) return;
-      DB.settings = Object.assign(DB.settings, d.settings||{});
+      const mine=Object.keys(DB.days).length, dates=Object.keys(d.days).sort();
+      const listed = dates.length<=7 ? "\n\n"+dates.map(shortDate).join("\n") : "";
+      if(!confirm(
+        `${d.partial?"Merge":"Restore"} ${dates.length} day(s) into this device?\n\n`+
+        `Those dates will be replaced by the incoming version. Your other days `+
+        `(${mine} saved here) are untouched.${listed}`)) return;
+      if(!d.partial) DB.settings = Object.assign(DB.settings, d.settings||{});   // a day file shouldn't carry settings
       Object.assign(DB.days, d.days);
       Object.keys(d.days).forEach(markDirty);   // restored days must reach the linked file too
       save(true); day=getDay(current,true); render(); toast("Backup restored");
