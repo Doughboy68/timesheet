@@ -868,8 +868,10 @@ $("#rows").addEventListener("keydown", e=>{
       break;
     default: return;
   }
-  if(moveTo(target)) e.preventDefault();
-  else if(e.key==="Enter") e.preventDefault();
+  /* Swallow the key even when there is nowhere to go: at the edge of the grid
+     a dropdown would otherwise fall through to the browser and cycle its value.
+     Use Alt+Down or type the first letter to change a dropdown. */
+  if(moveTo(target) || el.tagName==="SELECT" || e.key==="Enter") e.preventDefault();
 });
 
 /* reference popup */
