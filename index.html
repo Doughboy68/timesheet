@@ -428,8 +428,10 @@
       <li>Times run in 15 minute steps (0.25). Start fills in from the row above, so you only enter End times.</li>
       <li><b>Lunch</b> and <b>Off</b> don't count toward the daily total.</li>
       <li><b>Getting around:</b> arrow keys move between cells and <b>Enter</b> moves down,
-          as in Excel. In a dropdown, <b>Alt+&darr;</b> opens the list or just type the first
-          letter. <b>Tab</b> moves right. <b>Alt+&larr;/&rarr;</b> changes day.</li>
+          as in Excel. <b>Tab</b> moves right. <b>Alt+&larr;/&rarr;</b> changes day.</li>
+      <li><b>Editing:</b> arriving at a cell selects it, so typing replaces what's there.
+          Press <b>F2</b> (or <b>End</b>) to put the cursor in the text and edit it instead.
+          In a dropdown, type the first letter or press <b>Alt+&darr;</b> to open the list.</li>
     </ul>
   </div>
 </div>
@@ -849,6 +851,15 @@ $("#rows").addEventListener("keydown", e=>{
   const whole = isText && el.value.length>0 &&
                 el.selectionStart===0 && el.selectionEnd===el.value.length;
   let target=null;
+
+  /* F2 drops into the value without wiping it, as in Excel: caret to the end
+     of a text cell, open the list on a dropdown. */
+  if(e.key==="F2"){
+    if(isText){ const n=el.value.length; el.setSelectionRange(n,n); }
+    else if(el.tagName==="SELECT" && el.showPicker){ try{ el.showPicker(); }catch(err){} }
+    e.preventDefault();
+    return;
+  }
 
   switch(e.key){
     case "ArrowDown":
