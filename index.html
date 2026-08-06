@@ -1122,11 +1122,23 @@ $("#fileIn").onchange = e=>{
       const d=JSON.parse(fr.result);
       if(!d || typeof d!=="object" || !d.days) throw new Error("Not a timesheet backup");
       const mine=Object.keys(DB.days).length, dates=Object.keys(d.days).sort();
-      const listed = dates.length<=7 ? "\n\n"+dates.map(shortDate).join("\n") : "";
+      /* Show what each date is worth on both sides. A whole day is replaced,
+         not merged row by row, so a thin incoming day can wipe a full one. */
+      let losing=0;
+      const lines = dates.map(dt=>{
+        const inc = (d.days[dt].rows||[]).filter(rowUsed).length;
+        const cur = DB.days[dt] ? DB.days[dt].rows.filter(rowUsed).length : 0;
+        if(cur>inc) losing++;
+        return `${shortDate(dt)}:  ${inc} row${inc===1?"":"s"} in`+
+               (cur ? `  ->  replaces ${cur} here${cur>inc?"   ** LOSES "+(cur-inc)+" **":""}` : "  (new here)");
+      });
+      const shown = lines.slice(0,12).join("\n") + (lines.length>12 ? `\n… and ${lines.length-12} more` : "");
       if(!confirm(
         `${d.partial?"Merge":"Restore"} ${dates.length} day(s) into this device?\n\n`+
-        `Those dates will be replaced by the incoming version. Your other days `+
-        `(${mine} saved here) are untouched.${listed}`)) return;
+        shown+
+        `\n\nEach date above is replaced in full by the incoming version. `+
+        `Your other days (${mine} saved here) are untouched.`+
+        (losing ? `\n\nWARNING: ${losing} day(s) would end up with fewer rows than they have now.` : ""))) return;
       if(!d.partial) DB.settings = Object.assign(DB.settings, d.settings||{});   // a day file shouldn't carry settings
       Object.assign(DB.days, d.days);
       Object.keys(d.days).forEach(markDirty);   // restored days must reach the linked file too
