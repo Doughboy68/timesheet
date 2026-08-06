@@ -918,6 +918,49 @@ function updateRows(){
   syncFillers();
 }
 
+/* Push recalculated values back into the existing controls: cascaded start
+   times, hours, the header times, status colour. Used instead of a full
+   re-render when a dropdown changes, because rebuilding the table pulls the
+   element out from under iOS's picker and loses the first tap. */
+function refreshGrid(){
+  cascade(day);
+  const active = document.activeElement;
+  const trs = [...$("#rows").querySelectorAll("tr:not(.fill)")];
+  trs.forEach((tr,i)=>{
+    const r = day.rows[i];
+    if(!r) return;
+
+    /* Dropdowns are refreshed even when focused: the one that just changed is
+       the focused one, and clearing a pinned Start has to show the cascaded
+       value straight away. Text inputs are left alone so a caret isn't moved. */
+    const startSel = tr.children[2].querySelector("select");
+    if(startSel){
+      const want = r.start || "";
+      if(want && ![...startSel.options].some(o=>o.value===want)){
+        const op=document.createElement("option");
+        op.value=want; op.textContent=fmt12(want);
+        startSel.appendChild(op);
+      }
+      if(startSel.value!==want) startSel.value=want;
+    }
+    if(startSel) startSel.classList.toggle("pinned", !!(r.startManual && i>0));
+
+    const clientInp = tr.children[5].querySelector("input");
+    if(clientInp && clientInp!==active && clientInp.value!==(r.client||"")) clientInp.value = r.client||"";
+
+    const statusSel = tr.children[6].querySelector("select");
+    if(statusSel) statusSel.className = "st-"+(r.status||"none");
+
+    const h = rowHours(r);
+    tr.children[7].textContent = h==null ? "" : h.toFixed(2);
+  });
+
+  const firstStart = day.rows.find(r=>r.start && rowUsed(r));
+  const lastEnd = [...day.rows].reverse().find(r=>r.end);
+  $("#fStart").textContent = firstStart ? fmt12(firstStart.start) : "—";
+  $("#fEnd").textContent   = lastEnd ? fmt12(lastEnd.end) : "—";
+}
+
 /* Add rows as the sheet fills up. Only ever appends — shrinking is left to the
    next full render, so a row can't vanish from under the cursor. */
 function growRows(){
@@ -1006,31 +1049,23 @@ function selectEl(opts, val, onchange, label, key){
   return el;
 }
 
-/* commit: persist + optionally re-render (re-render blurs the field, so only when layout changes) */
-function commit(rerender){
+/* Persist, then update the grid in place. Nothing here rebuilds the table:
+   doing so during an edit destroys the control being used — it lost focus
+   mid-navigation on the desktop and swallowed the first tap on iOS, where the
+   picker is attached to the element. Full renders are for day changes, undo
+   and imports only.
+   `recalc` says whether values derived from other rows need refreshing —
+   true for the time, task and status dropdowns, false for plain typing. */
+function commit(recalc){
   DB.days[current] = day;
   markDirty(current);
   noteChange();
   if(!dayUsed(day) && !day.name) delete DB.days[current];
   save();
-  if(rerender){
-    const a=document.activeElement, tb=$("#rows");
-    let pos=null;
-    if(a && tb.contains(a)){
-      const tr=a.closest("tr");
-      pos={r:[...tb.children].indexOf(tr), c:[...tr.children].indexOf(a.closest("td"))};
-    }
-    render();
-    if(pos){
-      const tr=$("#rows").children[pos.r];
-      const f = tr && tr.children[pos.c] && tr.children[pos.c].querySelector("input,select,button");
-      if(f) f.focus();
-    }
-  }else{
-    updateRows();                                        // grow, trim and re-flag the cards
-    $("#total").textContent = dayTotal(day).toFixed(2);
-    renderSidebar();
-  }
+  updateRows();                                          // grow, trim and re-flag the cards
+  if(recalc) refreshGrid();                              // cascade, hours, header times
+  $("#total").textContent = dayTotal(day).toFixed(2);
+  renderSidebar();
 }
 
 /* ---------------- autocomplete sources ---------------- */
