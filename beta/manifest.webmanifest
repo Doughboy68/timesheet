@@ -1,10 +1,10 @@
 {
-  "id": "./",
+  "id": "/timesheet/beta/",
   "name": "Time Sheet BETA",
   "short_name": "TS Beta",
   "description": "Daily time sheet in 15 minute increments, stored on this device.",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/timesheet/beta/",
+  "scope": "/timesheet/beta/",
   "display": "standalone",
   "orientation": "any",
   "theme_color": "#c8102e",
