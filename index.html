@@ -876,6 +876,48 @@ function syncFillers(){
   }
 }
 
+/* Recompute the per-row classes without rebuilding anything. On the phone the
+   card view shows used rows plus one spare, and that depends on these. */
+function refreshRowFlags(){
+  const trs=[...$("#rows").querySelectorAll("tr:not(.fill)")];
+  let blankSeen=false;
+  trs.forEach((tr,i)=>{
+    const r=day.rows[i];
+    if(!r) return;
+    const used=rowUsed(r), unpaid=UNPAID.includes(r.task);
+    tr.classList.toggle("break", unpaid);
+    tr.classList.toggle("filled", used && !unpaid);
+    tr.classList.toggle("tpOn", !!r.tp);
+    tr.classList.toggle("extra", !used && blankSeen);
+    if(!used) blankSeen=true;
+  });
+}
+
+/* Drop trailing blank rows once they're no longer needed — but never the row
+   being edited, so nothing disappears from under the cursor. */
+function trimRows(){
+  let last=-1;
+  day.rows.forEach((r,i)=>{ if(rowUsed(r)) last=i; });
+  const want=Math.max(ROWS_MIN, last+1+ROWS_SPARE);
+  if(day.rows.length<=want) return;
+  const activeTr=document.activeElement && document.activeElement.closest
+    ? document.activeElement.closest("tr") : null;
+  const trs=[...$("#rows").querySelectorAll("tr:not(.fill)")];
+  for(let i=day.rows.length-1;i>=want;i--){
+    if(!trs[i] || trs[i]===activeTr) break;
+    trs[i].remove();
+    day.rows.pop();
+  }
+}
+
+/* Everything the lightweight commits need to keep the grid honest. */
+function updateRows(){
+  growRows();
+  trimRows();
+  refreshRowFlags();
+  syncFillers();
+}
+
 /* Add rows as the sheet fills up. Only ever appends — shrinking is left to the
    next full render, so a row can't vanish from under the cursor. */
 function growRows(){
@@ -985,7 +1027,7 @@ function commit(rerender){
       if(f) f.focus();
     }
   }else{
-    growRows();                                          // typing in the last row adds another
+    updateRows();                                        // grow, trim and re-flag the cards
     $("#total").textContent = dayTotal(day).toFixed(2);
     renderSidebar();
   }
