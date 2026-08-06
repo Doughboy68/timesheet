@@ -533,9 +533,41 @@ function timeOptions(){
   }
   return out;
 }
-function download(name, text, type){
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+
+async function download(name, text, type){
+  const blob = new Blob([text], {type:type+";charset=utf-8"});
+
+  /* iOS ignores an anchor's download attribute for blob URLs, so route it
+     through the share sheet — "Save to Files" lands it in iCloud or on the
+     device, and Mail sends it straight off. */
+  if(isIOS && navigator.canShare){
+    try{
+      const file = new File([blob], name, {type:blob.type});
+      if(navigator.canShare({files:[file]})){
+        await navigator.share({files:[file], title:name});
+        toast("Shared "+name);
+        return;
+      }
+    }catch(e){
+      if(e.name==="AbortError") return;            // user dismissed the sheet
+      console.error(e);                            // anything else: fall through
+    }
+  }
+
+  /* Last resort on iOS, where the anchor below would do nothing at all:
+     open the file so it can be saved or shared from Safari itself. */
+  if(isIOS){
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, "_blank");
+    setTimeout(()=>URL.revokeObjectURL(url), 30000);
+    if(w) alert("Your backup opened in a new tab. Use Safari's share button to save it to Files.");
+    else  alert("Couldn't save on this device. Allow pop-ups, or take the backup from Edge or Chrome on a computer.");
+    return;
+  }
+
   try{
-    const blob = new Blob([text], {type:type+";charset=utf-8"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href=url; a.download=name; a.rel="noopener";
@@ -546,7 +578,7 @@ function download(name, text, type){
     toast("Saved "+name);
   }catch(e){
     console.error(e);
-    alert("Could not create the file: "+e.message);
+    alert("Could not save the file: "+e.message);
   }
 }
 function toast(msg){
