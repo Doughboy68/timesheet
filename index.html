@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Time Sheet â€” Professional Services Team</title>
+<title>Time Sheet — Professional Services Team</title>
 <style>
   :root{
     --bg:#f4f5f7; --panel:#fff; --ink:#1c1e21; --muted:#6b7280; --line:#d8dbe0;
@@ -146,7 +146,11 @@
       display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:60;
       background:var(--accent);color:#fff;padding:8px 10px
     }
-    #topbar button{background:transparent;border:0;color:#fff;font-size:20px;line-height:1;padding:4px 8px;border-radius:5px}
+    #topbar button{
+      display:flex;align-items:center;justify-content:center;
+      background:transparent;border:0;color:#fff;font-size:19px;line-height:1;
+      padding:6px 9px;border-radius:5px;min-width:36px;min-height:36px
+    }
     #topbar button:active{background:rgba(255,255,255,.2)}
     #topTitle{flex:1;font-weight:600;font-size:15px}
 
@@ -191,7 +195,7 @@
     td.tp::after{content:"tap to toggle";font-size:10px;color:var(--muted)}
     tr.tpOn td.tp::after{content:""}
     table.grid tfoot tr{
-      display:flex;align-items:center;justify-content:flex-end;gap:10px;
+      display:flex;align-items:center;justify-content:flex-start;gap:8px;
       border:1px solid var(--line);border-radius:8px;background:var(--head);padding:12px
     }
     table.grid tfoot td{border:0;background:transparent;font-size:15px}
@@ -228,10 +232,14 @@
 </head>
 <body>
 <div id="topbar" class="noprint">
-  <button id="menuBtn" aria-label="Menu">â˜°</button>
+  <button id="menuBtn" aria-label="Menu">
+    <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+  </button>
   <div id="topTitle">Time Sheet</div>
   <button id="refBtn2" aria-label="What goes in each column">?</button>
-  <button id="printBtn2" aria-label="Print">ðŸ–¶</button>
+  <button id="printBtn2" aria-label="Print">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M7 8V3h10v5M7 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 15h10v6H7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/></svg>
+  </button>
 </div>
 <div id="scrim" class="noprint"></div>
 
@@ -246,11 +254,11 @@
     <div class="sec">
       <h4>Day</h4>
       <div class="row2">
-        <button class="btn" id="prevDay" title="Previous day">â—€ Prev</button>
-        <button class="btn" id="nextDay" title="Next day">Next â–¶</button>
+        <button class="btn" id="prevDay" title="Previous day">&lsaquo; Prev</button>
+        <button class="btn" id="nextDay" title="Next day">Next &rsaquo;</button>
       </div>
       <button class="btn" id="todayBtn">Go to today</button>
-      <button class="btn primary" id="printBtn">ðŸ–¶ Print / PDF</button>
+      <button class="btn primary" id="printBtn">Print / PDF</button>
       <button class="btn" id="refBtn">? What goes in each column</button>
     </div>
 
@@ -271,10 +279,10 @@
 
     <div class="sec" id="fileSec">
       <h4>Data file</h4>
-      <div class="fstat" id="fileStat">Not linked â€” data is stored in this browser only.</div>
-      <button class="btn" id="linkExisting">Use existing data fileâ€¦</button>
-      <button class="btn" id="linkNew">Create new data fileâ€¦</button>
-      <button class="btn" id="reconnect" style="display:none">ðŸ”“ Reconnect data file</button>
+      <div class="fstat" id="fileStat">Not linked — data is stored in this browser only.</div>
+      <button class="btn" id="linkExisting">Use existing data file…</button>
+      <button class="btn" id="linkNew">Create new data file…</button>
+      <button class="btn" id="reconnect" style="display:none">Reconnect data file</button>
       <button class="btn" id="unlink" style="display:none">Unlink data file</button>
     </div>
 
@@ -283,7 +291,7 @@
       <button class="btn" id="copyPrev">Copy rows from previous day</button>
       <button class="btn" id="exportCsv">Export CSV (all days)</button>
       <button class="btn" id="exportJson">Backup all data (JSON)</button>
-      <button class="btn" id="importJson">Restore from backupâ€¦</button>
+      <button class="btn" id="importJson">Restore from backup…</button>
       <button class="btn danger" id="clearDay">Clear this sheet</button>
       <button class="btn danger" id="deleteDay">Delete this day</button>
       <input type="file" id="fileIn" accept=".json,application/json" style="display:none">
@@ -307,7 +315,7 @@
       <div class="sheetHead">
         <img id="logoMain" alt="MicroAge">
         <div class="ttl">
-          <h1>Time Sheet â€” Professional Services Team</h1>
+          <h1>Time Sheet — Professional Services Team</h1>
           <p>(15 minute increments &mdash; 0.25)</p>
         </div>
         <div class="logoSpacer"></div>
@@ -316,8 +324,8 @@
       <div class="meta">
         <div class="fld"><label for="fName">Name:</label><input type="text" id="fName" autocomplete="off"></div>
         <div class="fld"><label for="fDate">Date:</label><input type="date" id="fDate"></div>
-        <div class="fld"><label>Work Start Time:</label><span class="ro" id="fStart">â€”</span></div>
-        <div class="fld"><label>Shop Left Time:</label><span class="ro" id="fEnd">â€”</span></div>
+        <div class="fld"><label>Work Start Time:</label><span class="ro" id="fStart">—</span></div>
+        <div class="fld"><label>Shop Left Time:</label><span class="ro" id="fEnd">—</span></div>
       </div>
 
       <table class="grid">
@@ -328,12 +336,12 @@
         <thead>
           <tr>
             <th title="Service Order Number">S/O#</th>
-            <th title="Time entered in TP â€” click the cell to toggle">TP</th>
+            <th title="Time entered in TP — click the cell to toggle">TP</th>
             <th title="Fills in from the row above. Pick a time to override it; clear it to go back to automatic.">Start Time</th>
             <th title="The only time you normally need to enter">End Time</th>
             <th title="Onsite, Shop, Remote, Shadow, Project, Meeting, Training, Admin, PD, Lunch, Off">Task</th>
-            <th title="Client name â€” or Service/Team/Management for a Meeting, OEM for Training, reason for Off">Client/Type</th>
-            <th title="COMP = Complete Â· IP = In Progress Â· WFP = Waiting for Parts">Status</th>
+            <th title="Client name — or Service/Team/Management for a Meeting, OEM for Training, reason for Off">Client/Type</th>
+            <th title="COMP = Complete · IP = In Progress · WFP = Waiting for Parts">Status</th>
             <th style="text-align:right" title="Worked out from Start and End. Lunch and Off are not counted.">Hours</th>
           </tr>
         </thead>
@@ -352,7 +360,7 @@
     </div>
 
     <p class="hint">
-      Start times fill in automatically from the previous row's end time â€” just enter End times as you go.
+      Start times fill in automatically from the previous row's end time — just enter End times as you go.
       Everything saves as you type. Lunch and Off rows are excluded from the total.
       Link a data file in the sidebar to keep two computers in sync through OneDrive.
     </p>
@@ -363,7 +371,7 @@
   <div id="refPanel" role="dialog" aria-modal="true" aria-labelledby="refTitle">
     <div class="refHead">
       <h3 id="refTitle">What goes in each column</h3>
-      <button id="refClose" aria-label="Close">âœ•</button>
+      <button id="refClose" aria-label="Close">&times;</button>
     </div>
     <table class="refTbl">
       <thead><tr><th>Task</th><th>S/O #</th><th>Client/Type</th><th>Status</th></tr></thead>
@@ -374,15 +382,15 @@
         <tr><td>Shadow</td><td>Number</td><td>Client name</td><td>COMP, IP, WFP</td></tr>
         <tr><td>Project</td><td>Number</td><td>Client name</td><td>COMP, IP, WFP</td></tr>
         <tr><td>Training</td><td>Number</td><td>OEM name</td><td>COMP, IP</td></tr>
-        <tr><td>Meeting</td><td>â€“</td><td>Service, Team or Management</td><td>â€“</td></tr>
-        <tr><td>Admin</td><td>â€“</td><td>Day Open or Day Close</td><td>â€“</td></tr>
-        <tr><td>Off</td><td>â€“</td><td>Reason, eg. Unpaid, VAC</td><td>â€“</td></tr>
-        <tr><td>Lunch</td><td>â€“</td><td>â€“</td><td>â€“</td></tr>
+        <tr><td>Meeting</td><td>–</td><td>Service, Team or Management</td><td>–</td></tr>
+        <tr><td>Admin</td><td>–</td><td>Day Open or Day Close</td><td>–</td></tr>
+        <tr><td>Off</td><td>–</td><td>Reason, eg. Unpaid, VAC</td><td>–</td></tr>
+        <tr><td>Lunch</td><td>–</td><td>–</td><td>–</td></tr>
       </tbody>
     </table>
     <ul class="refNotes">
-      <li><b>COMP</b> â€” Complete &nbsp;Â·&nbsp; <b>IP</b> â€” In Progress &nbsp;Â·&nbsp; <b>WFP</b> â€” Waiting for Parts</li>
-      <li><b>TP</b> â€” tap or click to mark the time as entered in TP.</li>
+      <li><b>COMP</b> — Complete &nbsp;·&nbsp; <b>IP</b> — In Progress &nbsp;·&nbsp; <b>WFP</b> — Waiting for Parts</li>
+      <li><b>TP</b> — tap or click to mark the time as entered in TP.</li>
       <li>Times run in 15 minute steps (0.25). Start fills in from the row above, so you only enter End times.</li>
       <li><b>Lunch</b> and <b>Off</b> don't count toward the daily total.</li>
     </ul>
@@ -403,7 +411,7 @@ const LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAAB2CAYAAAAayXtB
 const TASKS   = ["","Onsite","Shop","Remote","Shadow","Project","Meeting","Training","Admin","PD","Lunch","Off"];
 const STATUS  = ["","COMP","IP","WFP"];
 const UNPAID  = ["Lunch","Off"];          // excluded from Hours + Total, as in the workbook
-const ROWS_DEFAULT = 26;                   // rows 8â€“33 in the workbook
+const ROWS_DEFAULT = 26;                   // rows 8–33 in the workbook
 const KEY = "microage_timesheet_v1";
 
 /* ---------------- storage ---------------- */
@@ -433,7 +441,7 @@ function save(now){
   clearTimeout(saveTimer);
   const write = ()=>{
     try{ localStorage.setItem(KEY, JSON.stringify(DB)); }
-    catch(e){ toast("Could not save â€” storage full or blocked"); console.error(e); }
+    catch(e){ toast("Could not save — storage full or blocked"); console.error(e); }
     queueFileWrite(now);
   };
   if(now) write(); else saveTimer = setTimeout(write, 250);
@@ -516,8 +524,8 @@ function render(){
 
   const firstStart = day.rows.find(r=>r.start && rowUsed(r));
   const lastEnd = [...day.rows].reverse().find(r=>r.end);
-  $("#fStart").textContent = firstStart ? fmt12(firstStart.start) : "â€”";
-  $("#fEnd").textContent   = lastEnd ? fmt12(lastEnd.end) : "â€”";
+  $("#fStart").textContent = firstStart ? fmt12(firstStart.start) : "—";
+  $("#fEnd").textContent   = lastEnd ? fmt12(lastEnd.end) : "—";
 
   const times = timeOptions();
   const tb = $("#rows");
@@ -539,7 +547,7 @@ function render(){
 
     const tp = document.createElement("td");
     tp.className="tp"; tp.dataset.label="TP"; tp.textContent = r.tp ? "*" : "";
-    tp.title = "Time entered in TP â€” click to toggle";
+    tp.title = "Time entered in TP — click to toggle";
     tp.onclick = ()=>{ r.tp=!r.tp; commit(true); };
     tr.appendChild(tp);
 
@@ -680,7 +688,7 @@ function renderSidebar(){
     if(d) d.rows.forEach(r=>{ const h=rowHours(r); if(h){ byTask[r.task||"(none)"]=(byTask[r.task||"(none)"]||0)+h; } });
     wk+=`<tr class="${ds===current?"today":""}" data-d="${ds}" style="cursor:pointer">
           <td>${parseISO(ds).toLocaleDateString(undefined,{weekday:"short",day:"numeric"})}</td>
-          <td>${t?t.toFixed(2):"â€“"}</td></tr>`;
+          <td>${t?t.toFixed(2):"–"}</td></tr>`;
   }
   wk+=`<tr class="tot"><td>Total</td><td>${wtot.toFixed(2)}</td></tr>`;
   $("#weekTbl").innerHTML=wk;
@@ -862,7 +870,7 @@ function mergeIn(data){
   DB.settings = Object.assign(DB.settings, data.settings||{});
   const incoming = data.days;
   Object.keys(incoming).forEach(d=>{
-    if(dirty.has(d)) return;                // edited here since the last sync â€” keep ours
+    if(dirty.has(d)) return;                // edited here since the last sync — keep ours
     DB.days[d] = incoming[d];
   });
 }
@@ -903,7 +911,7 @@ function esc(s){ return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;","
 async function adopt(handle, isNew){
   fh = handle; fhName = handle.name;
   try{
-    // Always read first: "Create newâ€¦" can also land on an existing file,
+    // Always read first: "Create new…" can also land on an existing file,
     // and overwriting it unread would throw away real days.
     try{ await readIntoDB(); }
     catch(e){ if(!isNew) throw e;
@@ -914,7 +922,7 @@ async function adopt(handle, isNew){
     await writeNow();                       // push anything only we had
     toast("Linked to "+fhName);
   }catch(e){
-    fh=null; fileStatus("Not linked â€” data is stored in this browser only.");
+    fh=null; fileStatus("Not linked — data is stored in this browser only.");
     alert("Could not use that file: "+e.message);
   }
 }
@@ -940,15 +948,15 @@ $("#linkNew").onclick = async ()=>{
   }catch(e){ if(e.name!=="AbortError") alert(e.message); }
 };
 /* Chrome only grants file access for the session, and file:// pages can't be
-   given permanent permission â€” so we ask again each launch, on the first click. */
+   given permanent permission — so we ask again each launch, on the first click. */
 let needReconnect=false, asked=false;
 
 function showBanner(){
-  if(needReconnect) return;                 // already showing â€” don't re-arm the prompt
+  if(needReconnect) return;                 // already showing — don't re-arm the prompt
   needReconnect=true; asked=false;
   const n = dirty.size;
   $("#bannerTxt").innerHTML =
-    `Not saving to <b>${esc(fhName)}</b> yet â€” Chrome asks permission each time this is opened. ` +
+    `Not saving to <b>${esc(fhName)}</b> yet — Chrome asks permission each time this is opened. ` +
     `Everything you type is still saved here` +
     (n ? `, and <b>${n} day${n>1?"s":""}</b> will be written to the file as soon as you reconnect.` : `.`);
   $("#banner").style.display="flex";
@@ -987,7 +995,7 @@ $("#unlink").onclick = async ()=>{
   if(!confirm("Stop saving to "+fhName+"? Your data stays in this browser, and the file is left as it is.")) return;
   fh=null; fhName=""; await idbSet(null);
   hideBanner();
-  fileStatus("Not linked â€” data is stored in this browser only.");
+  fileStatus("Not linked — data is stored in this browser only.");
   toast("Unlinked");
 };
 
@@ -1027,7 +1035,7 @@ async function initFileLink(){
       'Use Chrome or Edge for that, or keep using Backup / Restore below.</div>';
     return;
   }
-  fileStatus("Not linked â€” data is stored in this browser only.");
+  fileStatus("Not linked — data is stored in this browser only.");
   try{
     const h = await idbGet();
     if(!h) return;
