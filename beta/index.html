@@ -601,6 +601,7 @@ const STATUS  = ["","COMP","IP","WFP"];
 const UNPAID  = ["Lunch","Off"];          // excluded from Hours + Total, as in the workbook
 const ROWS_MIN = 12;                       // the sheet never shows fewer than this
 const ROWS_SPARE = 1;                      // always this many blank rows below the last entry
+const DEFAULT_START = "08:30";             // what the first row's Start opens on
 const PRINT_ROWS = 20;                     // printed sheets are padded to this, so every day
                                            // comes out the same length
 /* Beta is served from /beta/ on the same host, which means the same browser
@@ -659,6 +660,20 @@ function fmt12(hhmm){
   const ap = h<12 ? "AM":"PM";
   h = h%12; if(h===0) h=12;
   return `${h}:${pad(m)} ${ap}`;
+}
+/* End times are offered from the next increment after that row's Start, so the
+   first choice in the list is the next available time and you're never
+   scrolling past times that have already gone. Midnight stays at the end, so
+   an evening callout can still end at 12:00 AM. */
+function nextAfter(times, start){
+  if(!start) return "";
+  const i = times.indexOf(start);
+  return (i >= 0 && i+1 < times.length) ? times[i+1] : "";
+}
+function endOptions(times, start){
+  if(!start) return times;
+  const i = times.indexOf(start);
+  return i < 0 ? times : ["", ...times.slice(i+1)];
 }
 function timeOptions(){
   const out=[""];
@@ -913,13 +928,35 @@ function buildRow(r, i, times, timeKey, isExtra){
       r.startManual = !!v && v!==auto;
       commit(true);
     }, fmt12, timeKey);
+    /* The first row has no row above to follow, so its Start opens on the
+       usual start of day — one tap if that's right, spin if it isn't. */
+    if(i===0){
+      startSel.addEventListener("pointerdown", ()=>{
+        if(startSel.value) return;
+        startSel.value = DEFAULT_START;
+        startSel.dispatchEvent(new Event("change", {bubbles:true}));
+      });
+    }
     if(r.startManual && i>0){        // row 0 is expected to be typed in; the rest aren't
       startSel.classList.add("pinned");
       startSel.title="Set by hand, so it no longer follows the row above. Clear it to go back to automatic.";
     }
     tr.appendChild(cell(startSel, "Start"));
 
-    tr.appendChild(cell(selectEl(times, r.end, v=>{ r.end=v; commit(true); }, fmt12, timeKey), "End"));
+    const endSel = selectEl(endOptions(times, r.start), r.end,
+                            v=>{ r.end=v; commit(true); }, fmt12, timeKey+":"+(r.start||""));
+    endSel.dataset.forStart = r.start || "";
+    /* Opening an empty End fills in the next increment after Start, so the
+       picker opens on it and it's one tap to accept. Fires before the picker
+       appears, hence pointerdown rather than click. */
+    endSel.addEventListener("pointerdown", ()=>{
+      if(endSel.value) return;
+      const next = nextAfter(times, r.start);
+      if(!next) return;
+      endSel.value = next;
+      endSel.dispatchEvent(new Event("change", {bubbles:true}));
+    });
+    tr.appendChild(cell(endSel, "End"));
 
     tr.appendChild(cell(selectEl(TASKS, r.task, v=>{
       r.task=v;
@@ -1013,6 +1050,8 @@ function updateRows(){
 function refreshGrid(){
   cascade(day);
   const active = document.activeElement;
+  const times = timeOptions();
+  const timeKey = "times"+(DB.settings.allHours?"24":"");
   const trs = [...$("#rows").querySelectorAll("tr:not(.fill)")];
   trs.forEach((tr,i)=>{
     const r = day.rows[i];
@@ -1032,6 +1071,22 @@ function refreshGrid(){
       if(startSel.value!==want) startSel.value=want;
     }
     if(startSel) startSel.classList.toggle("pinned", !!(r.startManual && i>0));
+
+    /* The End list is cut to times after this row's Start, so it has to be
+       rebuilt when Start moves — but never while its own picker is open. */
+    const endSel = tr.children[3].querySelector("select");
+    if(endSel && endSel!==active && endSel.dataset.forStart !== (r.start||"")){
+      const keep = r.end || "";
+      endSel.innerHTML = "";
+      endSel.appendChild(optionsFor(endOptions(times, r.start), fmt12, timeKey+":"+(r.start||"")));
+      if(keep && ![...endSel.options].some(o=>o.value===keep)){
+        const op=document.createElement("option");
+        op.value=keep; op.textContent=fmt12(keep);
+        endSel.appendChild(op);
+      }
+      endSel.value = keep;
+      endSel.dataset.forStart = r.start || "";
+    }
 
     const clientInp = tr.children[5].querySelector("input");
     if(clientInp && clientInp!==active && clientInp.value!==(r.client||"")) clientInp.value = r.client||"";
@@ -1802,7 +1857,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.1632";
+const BUILD = "2026-08-06.1638";
 
 function showUpdateBar(reg){
   const bar=$("#updateBar");
