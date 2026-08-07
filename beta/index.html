@@ -120,17 +120,23 @@
   .weekRow.on{background:var(--todaybg);box-shadow:inset 3px 0 0 var(--accent);font-weight:600}
   .weekRow .mn{flex:1}
   .weekRow small{color:var(--muted);font-variant-numeric:tabular-nums}
-  /* Months fold away; only the ones you open show their weeks. */
-  .monthRow{
+  /* Year, then month, then week — each folded away until opened, so the list
+     stays the same size whether it holds one month or ten years. */
+  .yearRow,.monthRow{
     display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;
-    padding:6px 8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
-    color:var(--muted);background:var(--head);border-bottom:1px solid var(--line)
+    border-bottom:1px solid var(--line)
   }
-  .monthRow:hover{background:var(--hover2);color:var(--ink)}
-  .monthRow .car{font-size:9px;width:9px}
-  .monthRow .mn{flex:1}
-  .monthRow small{font-variant-numeric:tabular-nums}
-  #dayList .weekRow{padding-left:23px}       /* sits under its month */
+  .yearRow{padding:7px 8px;font-size:12px;font-weight:600;background:var(--head);color:var(--ink)}
+  .monthRow{
+    padding:6px 8px 6px 20px;font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--muted);background:var(--panel)
+  }
+  .yearRow:hover{background:var(--hover2)}
+  .monthRow:hover{background:var(--hover);color:var(--ink)}
+  .yearRow .car,.monthRow .car{font-size:9px;width:9px;color:var(--muted)}
+  .yearRow .mn,.monthRow .mn{flex:1}
+  .yearRow small,.monthRow small{color:var(--muted);font-variant-numeric:tabular-nums}
+  #dayList .weekRow{padding-left:34px}       /* sits under its month */
   .empty{padding:10px;color:var(--muted);text-align:center;font-size:12px}
 
   .wk{width:100%;border-collapse:collapse;font-size:12px}
@@ -1406,20 +1412,38 @@ function renderSidebar(){
     /* Months are folded away by default. Almost all work is on today, reached
        by Prev/Next, so this list is for the occasional trip back and shouldn't
        grow down the sidebar as the year does. What you open is remembered. */
+    const openY = DB.settings.openYears  || (DB.settings.openYears  = {});
     const openM = DB.settings.openMonths || (DB.settings.openMonths = {});
-    const monthTotal = {};
-    order.forEach(w=>{ const m=w.slice(0,7); monthTotal[m]=(monthTotal[m]||0)+weekTotal(w); });
-
-    let lastMonth=null;
+    const monthTotal = {}, yearTotal = {};
     order.forEach(w=>{
-      const m=w.slice(0,7);
+      const m=w.slice(0,7), y=w.slice(0,4), t=weekTotal(w);
+      monthTotal[m]=(monthTotal[m]||0)+t;
+      yearTotal[y] =(yearTotal[y] ||0)+t;
+    });
+
+    let lastYear=null, lastMonth=null;
+    order.forEach(w=>{
+      const y=w.slice(0,4), m=w.slice(0,7);
+      if(y!==lastYear){
+        lastYear=y; lastMonth=null;
+        const open=!!openY[y];
+        const yd=document.createElement("div");
+        yd.className="yearRow"+(open?" open":"");
+        yd.innerHTML=`<span class="car">${open?"&#9662;":"&#9656;"}</span>`+
+                     `<span class="mn">${y}</span>`+
+                     `<small>${yearTotal[y].toFixed(2)}</small>`;
+        yd.onclick=()=>{ openY[y]=!open; save(); renderSidebar(); };
+        list.appendChild(yd);
+      }
+      if(!openY[y]) return;                       // year folded: nothing below it shows
+
       if(m!==lastMonth){
         lastMonth=m;
         const open=!!openM[m];
         const md=document.createElement("div");
         md.className="monthRow"+(open?" open":"");
         md.innerHTML=`<span class="car">${open?"&#9662;":"&#9656;"}</span>`+
-                     `<span class="mn">${monthLabel(m)}</span>`+
+                     `<span class="mn">${monthLabel(m).replace(" "+y,"")}</span>`+
                      `<small>${monthTotal[m].toFixed(2)}</small>`;
         md.onclick=()=>{ openM[m]=!open; save(); renderSidebar(); };
         list.appendChild(md);
@@ -2125,7 +2149,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-07.1017";
+const BUILD = "2026-08-07.1023";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
