@@ -459,6 +459,7 @@
       <button class="btn" id="exportJson">Backup all data (JSON)</button>
       <button class="btn" id="importJson">Restore from backup…</button>
       <button class="btn danger" id="clearDay">Clear this day</button>
+      <button class="btn danger" id="eraseAll">Erase everything on this device…</button>
       <input type="file" id="fileIn" accept=".json,application/json" style="display:none">
     </details>
 
@@ -1460,8 +1461,8 @@ function printTitle(){
 }
 /* e.g. "BRIAN SEMOTIUK day 2026-08-06.json" — says whose it is and whether it
    covers a day or a week, once it's sitting in Files next to other people's. */
-function exportName(kind, dates, date){
-  return [(personNameFor(dates) || "Timesheet"), kind, date].join(" ") + ".json";
+function exportName(kind, dates, date, ext){
+  return [(personNameFor(dates) || "Timesheet"), kind, date].join(" ") + (ext || ".json");
 }
 window.addEventListener("beforeprint", ()=>{ document.title = printTitle(); });
 window.addEventListener("afterprint",  ()=>{ document.title = BASE_TITLE; });
@@ -1650,7 +1651,8 @@ $("#exportCsv").onclick = ()=>{
     });
     lines.push([d,"","","","","","","Total",dayTotal(dd).toFixed(2)].join(","));
   });
-  download("timesheet-"+todayISO()+".csv", "﻿"+lines.join("\r\n"), "text/csv");  // BOM so Excel reads UTF-8
+  download(exportName("all days", [], todayISO(), ".csv"),
+           "﻿"+lines.join("\r\n"), "text/csv");                    // BOM so Excel reads UTF-8
 };
 /* A partial backup: only the dates asked for. Restoring it touches those
    dates and nothing else, so a phone holding a couple of days can be merged
@@ -1672,8 +1674,55 @@ $("#sendWeek").onclick = ()=>{
 
 $("#exportJson").onclick = ()=>{
   save(true);
-  download("timesheet-backup-"+todayISO()+".json", JSON.stringify(DB,null,2), "application/json");
+  download(exportName("backup", [], todayISO()), JSON.stringify(DB,null,2), "application/json");
 };
+/* Start again from nothing — for handing a clean copy to someone else, or
+   clearing out test data. Offers the backup first, because this is the only
+   copy and there is no undo for it. The linked data file itself is left
+   alone; only the link to it is dropped. */
+$("#eraseAll").onclick = async ()=>{
+  const days = Object.keys(DB.days).filter(d=>dayUsed(DB.days[d])).length;
+
+  if(days && confirm(
+      `Download a backup first?\n\n`+
+      `${days} saved day${days>1?"s":""} exist only on this device. `+
+      `OK to save a backup now, or Cancel to skip it.`)){
+    await download(exportName("backup", [], todayISO()), JSON.stringify(DB,null,2), "application/json");
+    await new Promise(r=>setTimeout(r,600));
+  }
+
+  if(!confirm(
+      `Erase everything on this device?\n\n`+
+      `• ${days} saved day${days===1?"":"s"}\n`+
+      `• your name, theme and options\n`+
+      `• the link to a data file (the file itself is left as it is)\n\n`+
+      `This cannot be undone.`)) return;
+
+  if(fh){ fh=null; fhName=""; try{ await idbSet(null); }catch(e){} hideBanner(); }
+  try{
+    localStorage.removeItem(KEY);
+    localStorage.removeItem(KEY+"_dirty");
+  }catch(e){ console.error(e); }
+  dirty.clear();
+
+  DB = {version:1, settings:{name:"", allHours:false}, days:{}};
+  current = todayISO();
+  day = getDay(current);
+  openWeeks = new Set([weekStart(current)]);
+  rowSnap = null;
+  optCache.clear();                       // option lists depend on the settings
+  undoReset();
+
+  $("#fName").value = "";
+  $("#defaultName").value = "";
+  $("#allHours").checked = false;
+  $("#theme").value = "auto";
+  applyTheme();
+  if(FSA) fileStatus("Not linked — data is stored in this browser only.");
+  render();
+  toast("Everything erased — this device is back to a fresh start");
+};
+
 $("#importJson").onclick = ()=> $("#fileIn").click();
 $("#fileIn").onchange = e=>{
   const f=e.target.files[0]; if(!f) return;
@@ -1968,7 +2017,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.2303";
+const BUILD = "2026-08-06.2311";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
