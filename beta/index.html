@@ -109,25 +109,22 @@
   .row2 .btn{margin-bottom:4px}
 
   #dayList{max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:5px}
-  .monthHead{
+  /* One row per saved week. The days live in the panel below, so this list
+     stays short and there's no expanding. */
+  .weekRow{
     display:flex;align-items:center;gap:6px;padding:6px 8px;cursor:pointer;user-select:none;
-    background:var(--head);border-bottom:1px solid var(--line);font-size:11.5px;font-weight:600;
-    position:sticky;top:0;z-index:1
+    border-bottom:1px solid var(--line);font-size:11.5px
   }
-  .monthHead:hover{background:var(--hover2)}
+  .weekRow:last-child{border-bottom:0}
+  .weekRow:hover{background:var(--hover)}
+  .weekRow.on{background:var(--todaybg);box-shadow:inset 3px 0 0 var(--accent);font-weight:600}
+  .weekRow .mn{flex:1}
+  .weekRow small{color:var(--muted);font-variant-numeric:tabular-nums}
   .monthDiv{
     padding:5px 8px 3px;font-size:10px;text-transform:uppercase;letter-spacing:.07em;
-    color:var(--muted);background:var(--panel);border-bottom:1px solid var(--line)
+    color:var(--muted);background:var(--head);border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:1
   }
-  .monthHead .car{color:var(--muted);font-size:10px;width:9px}
-  .monthHead .mn{flex:1}
-  .monthHead small{color:var(--muted);font-variant-numeric:tabular-nums}
-  #dayList .dayItem{padding-left:23px}       /* indented under its month header */
-  .dayItem{display:flex;justify-content:space-between;gap:6px;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer}
-  .dayItem:last-child{border-bottom:0}
-  .dayItem:hover{background:var(--hover)}
-  .dayItem.on{background:var(--todaybg);box-shadow:inset 3px 0 0 var(--accent)}
-  .dayItem small{color:var(--muted)}
   .empty{padding:10px;color:var(--muted);text-align:center;font-size:12px}
 
   .wk{width:100%;border-collapse:collapse;font-size:12px}
@@ -342,6 +339,7 @@
     table.grid tfoot td:first-child{display:none}   /* the TP footnote */
     table.grid tfoot td#total{font-size:17px;min-width:0}
     details.fold>summary{padding:11px 8px;font-size:12px}   /* a proper tap target */
+    .weekRow{padding:11px 8px;font-size:12.5px}             /* likewise */
     #refWrap{padding:0;align-items:flex-end}
     #refPanel{max-height:92vh;border-radius:12px 12px 0 0}
     table.refTbl{font-size:12px}
@@ -454,12 +452,12 @@
     </div>
 
     <div class="sec">
-      <h4>Saved days</h4>
+      <h4>Saved weeks</h4>
       <div id="dayList"></div>
     </div>
 
     <div class="sec">
-      <h4>This week (Sun&ndash;Sat)</h4>
+      <h4 id="weekHead">Selected week</h4>
       <table class="wk" id="weekTbl"></table>
     </div>
 
@@ -957,7 +955,6 @@ function redo(){
 /* ---------------- state ---------------- */
 let current = todayISO();
 let day = getDay(current);
-let openWeeks = new Set([weekStart(current)]);    // payroll weeks expanded in the sidebar list
 
 /* ---------------- rendering ---------------- */
 function render(){
@@ -1366,13 +1363,15 @@ function renderSidebar(){
   // saved days
   const list=$("#dayList");
   const dates=Object.keys(DB.days).filter(d=>dayUsed(DB.days[d])).sort().reverse();
-  if(!dates.length){ list.innerHTML='<div class="empty">No saved days yet</div>'; }
+  if(!dates.length){ list.innerHTML='<div class="empty">Nothing saved yet</div>'; }
   else{
     list.innerHTML="";
-    /* grouped by payroll week (Sun–Sat), newest first, with a month divider
-       whenever the month changes — keeps the list short however many days pile up */
+    /* Weeks only — the panel below lists the days of whichever week is
+       selected, so nothing is shown in both places. Payroll weeks, newest
+       first, with a month divider when the month changes. */
     const order=[], byWeek={};
     dates.forEach(d=>{ const w=weekStart(d); if(!byWeek[w]){ byWeek[w]=[]; order.push(w); } byWeek[w].push(d); });
+    const here = weekStart(current);
     let lastMonth=null;
     order.forEach(w=>{
       const m=w.slice(0,7);
@@ -1382,29 +1381,20 @@ function renderSidebar(){
         md.className="monthDiv"; md.textContent=monthLabel(m);
         list.appendChild(md);
       }
-      const open = openWeeks.has(w);
       const tot = byWeek[w].reduce((s,d)=>s+dayTotal(DB.days[d]),0);
+      const n = byWeek[w].length;
       const h=document.createElement("div");
-      h.className="monthHead"+(open?" open":"");
-      h.innerHTML=`<span class="car">${open?"&#9662;":"&#9656;"}</span>`+
-                  `<span class="mn">${weekLabel(w)}</span>`+
-                  `<small>${tot.toFixed(2)}</small>`;
-      h.title=`Week of ${longDate(w)} — ${byWeek[w].length} day${byWeek[w].length>1?"s":""}`;
-      h.onclick=()=>{ open ? openWeeks.delete(w) : openWeeks.add(w); renderSidebar(); };
+      h.className="weekRow"+(w===here?" on":"");
+      h.innerHTML=`<span class="mn">${weekLabel(w)}</span><small>${tot.toFixed(2)}</small>`;
+      h.title=`${n} day${n>1?"s":""} with entries — click to open this week`;
+      h.onclick=()=>goto(byWeek[w].slice().sort()[0]);   // its earliest day with entries
       list.appendChild(h);
-      if(!open) return;
-      byWeek[w].slice().sort().forEach(d=>{      // Sun->Sat, matching the week panel below
-        const div=document.createElement("div");
-        div.className="dayItem"+(d===current?" on":"");
-        div.innerHTML=`<span>${shortDate(d)}</span><small>${dayTotal(DB.days[d]).toFixed(2)}</small>`;
-        div.onclick=()=>goto(d);
-        list.appendChild(div);
-      });
     });
   }
 
   // week
   const mon=weekStart(current);
+  $("#weekHead").textContent = "Week of " + weekLabel(mon);   // names the week it shows
   let wk="", wtot=0;
   const byTask={};
   for(let i=0;i<7;i++){
@@ -1469,7 +1459,6 @@ function weekStart(iso){                      // Sunday — payroll week runs Su
 function goto(date){
   save(true);
   current=date;
-  openWeeks.add(weekStart(date));            // keep the week you jump to expanded
   rowSnap=null;                              // snapshots don't carry across days
   day=getDay(date);
   undoReset();                               // undo history is per day
@@ -1668,7 +1657,7 @@ $("#menuBtn").onclick = ()=> nav(!document.body.classList.contains("nav"));
 $("#scrim").onclick = ()=> nav(false);
 $("#printBtn2").onclick = ()=>{ nav(false); doPrint(); };
 $("#side").addEventListener("click", e=>{        // close after picking a day or an action
-  if(e.target.closest(".dayItem,.btn,.wk tr[data-d]")) nav(false);
+  if(e.target.closest(".weekRow,.btn,.wk tr[data-d]")) nav(false);
 });
 $("#undoBtn").onclick = ()=>undo();
 $("#redoBtn").onclick = ()=>redo();
@@ -1775,7 +1764,6 @@ $("#eraseAll").onclick = async ()=>{
   DB = {version:1, settings:{name:"", allHours:false}, days:{}};
   current = todayISO();
   day = getDay(current);
-  openWeeks = new Set([weekStart(current)]);
   rowSnap = null;
   optCache.clear();                       // option lists depend on the settings
   undoReset();
@@ -2093,7 +2081,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-07.0955";
+const BUILD = "2026-08-07.1007";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
