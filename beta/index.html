@@ -134,6 +134,9 @@
   .wk td{padding:2px 4px;border-bottom:1px solid var(--line)}
   .wk td:last-child{text-align:right;font-variant-numeric:tabular-nums}
   .wk tr.tot td{font-weight:700;border-top:1px solid var(--line);border-bottom:0}
+  /* Billable sits with the total but reads quieter — it's context, not the figure. */
+  .wk tr.bill td{border-bottom:0;padding-top:0;color:var(--muted)}
+  .billnote,#billNote{margin-left:8px;font-weight:400;font-size:11px;color:var(--muted)}
   .wk tr.sub td{
     padding-top:9px;border-bottom:0;font-size:10px;text-transform:uppercase;
     letter-spacing:.06em;color:var(--muted)
@@ -551,7 +554,7 @@
         <tfoot>
           <tr>
             <td colspan="5" style="border:0;background:transparent;font-weight:400;font-size:11px">* Time entered in TP</td>
-            <td colspan="2" style="text-align:right">Total:</td>
+            <td colspan="2" style="text-align:right">Total:<span id="billNote"></span></td>
             <td class="n" id="total">0.00</td>
           </tr>
         </tfoot>
@@ -628,6 +631,9 @@ const LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAAB2CAYAAAAayXtB
 const TASKS   = ["","Onsite","Shop","Remote","Shadow","Project","Meeting","Training","Admin","PD","Lunch","Off"];
 const STATUS  = ["","COMP","IP","WFP"];
 const UNPAID  = ["Lunch","Off"];          // excluded from Hours + Total, as in the workbook
+/* Work that gets billed on. The rest — Shadow, Meeting, Admin, PD — is worked
+   and counts toward the total, it just isn't chargeable. */
+const BILLABLE = ["Onsite","Shop","Remote","Project","Training"];
 const ROWS_MIN = 12;                       // the sheet never shows fewer than this
 const ROWS_SPARE = 1;                      // always this many blank rows below the last entry
 const DEFAULT_START = "08:30";             // what the first row's Start opens on
@@ -866,6 +872,15 @@ function rowHours(r){
 function dayTotal(day){
   return day.rows.reduce((s,r)=> s + (rowHours(r)||0), 0);
 }
+function dayBillable(day){
+  return day.rows.reduce((s,r)=> s + (BILLABLE.includes(r.task) ? (rowHours(r)||0) : 0), 0);
+}
+/* Billable as a share of hours worked. Blank when nothing is on the sheet, so
+   an empty day doesn't announce 0%. */
+function billableNote(worked, billable){
+  if(!worked) return "";
+  return Math.round(billable/worked*100) + "% billable";
+}
 
 /* ---------------- undo / redo ----------------
    Snapshots of the current day. Rapid typing coalesces into one step, so
@@ -969,6 +984,7 @@ function render(){
 
   syncFillers();
   $("#total").textContent = dayTotal(day).toFixed(2);
+  $("#billNote").textContent = billableNote(dayTotal(day), dayBillable(day));
   renderSidebar();
   buildLists();
 }
@@ -1319,6 +1335,7 @@ function commit(recalc){
   updateRows();                                          // grow, trim and re-flag the cards
   if(recalc) refreshGrid();                              // cascade, hours, header times
   $("#total").textContent = dayTotal(day).toFixed(2);
+  $("#billNote").textContent = billableNote(dayTotal(day), dayBillable(day));
   renderSidebar();
 }
 
@@ -1401,6 +1418,13 @@ function renderSidebar(){
           <td>${t?t.toFixed(2):"–"}</td></tr>`;
   }
   wk+=`<tr class="tot"><td>Total</td><td>${wtot.toFixed(2)}</td></tr>`;
+  if(wtot){
+    const wbill = Array.from({length:7},(_,i)=>DB.days[shiftISO(mon,i)])
+                       .reduce((s,d)=> s + (d ? dayBillable(d) : 0), 0);
+    wk+=`<tr class="bill"><td>Billable</td>`+
+        `<td><span class="hrs">${wbill.toFixed(2)}</span>`+
+        `<span class="pct">${Math.round(wbill/wtot*100)}%</span></td></tr>`;
+  }
 
   // hours by task, folded into the same panel rather than a second table
   const keys=Object.keys(byTask).sort((a,b)=>byTask[b]-byTask[a]);
@@ -2065,7 +2089,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-07.0919";
+const BUILD = "2026-08-07.0927";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
