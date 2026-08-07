@@ -200,6 +200,9 @@
   table.grid select.st-WFP{background:var(--wfp)}
   /* a start time set by hand, which no longer follows the row above */
   table.grid select.pinned{box-shadow:inset 2px 0 0 var(--accent)}
+  /* end before start — counts nothing, and says so rather than hiding */
+  table.grid tbody tr.bad td{background:var(--wfp)}
+  table.grid tbody tr.bad td.n{color:var(--accent);font-weight:700}
   col.c-so{width:78px} col.c-tp{width:30px} col.c-t{width:96px} col.c-task{width:104px}
   col.c-st{width:74px} col.c-h{width:62px}
   tfoot td{border:1px solid var(--line);padding:5px 6px;font-weight:700;background:var(--head)}
@@ -601,6 +604,7 @@ const STATUS  = ["","COMP","IP","WFP"];
 const UNPAID  = ["Lunch","Off"];          // excluded from Hours + Total, as in the workbook
 const ROWS_MIN = 12;                       // the sheet never shows fewer than this
 const ROWS_SPARE = 1;                      // always this many blank rows below the last entry
+const DEFAULT_START = "08:30";             // what the first row's Start opens on
 const PRINT_ROWS = 20;                     // printed sheets are padded to this, so every day
                                            // comes out the same length
 /* Beta is served from /beta/ on the same host, which means the same browser
@@ -659,6 +663,54 @@ function fmt12(hhmm){
   const ap = h<12 ? "AM":"PM";
   h = h%12; if(h===0) h=12;
   return `${h}:${pad(m)} ${ap}`;
+}
+/* End times are offered from the next increment after that row's Start, so the
+   first choice in the list is the next available time and you're never
+   scrolling past times that have already gone. Midnight stays at the end, so
+   an evening callout can still end at 12:00 AM. */
+/* Put a likely value into an empty dropdown just before its picker opens, so
+   the picker lands on it.
+
+   The value is set but nothing is committed: firing change here would run a
+   commit and refresh while the picker is opening, and iOS abandons the picker
+   when the element changes underneath it — which cost a second tap. The
+   commit happens when the cell is left, or immediately if a different value
+   is chosen. Several open events are wired because no single one fires on
+   every platform. */
+function suggestOnOpen(sel, getNext){
+  const fill = ()=>{
+    if(sel.value) return;
+    const next = getNext();
+    if(!next) return;
+    sel.value = next;
+    sel.dataset.suggested = "1";
+  };
+  ["pointerdown","mousedown","touchstart"].forEach(t=>
+    sel.addEventListener(t, fill, {passive:true}));
+  sel.addEventListener("keydown", e=>{
+    if((e.altKey && e.key==="ArrowDown") || e.key==="F2") fill();
+  });
+  sel.addEventListener("change", ()=>{ delete sel.dataset.suggested; });
+  /* Committed only when this cell is left, and only ever this cell. The
+     previous attempt committed pending suggestions from a document-level
+     handler, which fired change on selects the user wasn't in and could race
+     the End list rebuild — that is what lost end times and broke the pin. */
+  sel.addEventListener("blur", ()=>{
+    if(!sel.dataset.suggested) return;
+    delete sel.dataset.suggested;
+    if(sel.value) sel.dispatchEvent(new Event("change", {bubbles:true}));
+  });
+}
+
+function nextAfter(times, start){
+  if(!start) return "";
+  const i = times.indexOf(start);
+  return (i >= 0 && i+1 < times.length) ? times[i+1] : "";
+}
+function endOptions(times, start){
+  if(!start) return times;
+  const i = times.indexOf(start);
+  return i < 0 ? times : ["", ...times.slice(i+1)];
 }
 function timeOptions(){
   const out=[""];
@@ -748,11 +800,41 @@ function cascade(day){
     r.start = i===0 ? r.start : (day.rows[i-1].end || "");
   }
 }
+/* An end that isn't after its start. Happens when a Start is pinned or an End
+   above is changed: the rows below re-chain, and ends chosen earlier can end
+   up before their own new start. Compared by position in the time list, so
+   midnight — which sits at the end — still closes an evening properly. */
+function rowBackwards(r){
+  if(!r.start || !r.end) return false;
+  const t = timeOptions();
+  const si = t.indexOf(r.start), ei = t.indexOf(r.end);
+  if(si < 0 || ei < 0) return false;
+  return ei <= si;
+}
+/* After a Start is pinned or an End changed, the rows below re-chain and their
+   old end times can be left behind — either sitting before their own new
+   start, or stranded on a row that no longer has one. Clear those.
+
+   Deliberately called from the edit handlers only, never from cascade(), so
+   opening an old day can't quietly rewrite it. It's one undo step. */
+function clearStaleTimes(from){
+  const t = timeOptions();
+  for(let i=Math.max(0,from); i<day.rows.length; i++){
+    const r = day.rows[i];
+    if(!r.end) continue;
+    const start = (r.startManual || i===0) ? r.start : (day.rows[i-1].end || "");
+    if(!start){ r.end=""; continue; }               // stranded with nothing to measure from
+    const si=t.indexOf(start), ei=t.indexOf(r.end);
+    if(si>=0 && ei>=0 && ei<=si) r.end="";          // no longer after its start
+  }
+}
+
 function rowHours(r){
   if(!r.start || !r.end) return null;
   if(!r.task || UNPAID.includes(r.task)) return null;   // no task counts no time, as Lunch and Off do
+  if(rowBackwards(r)) return null;           // don't quietly bill it as crossing midnight
   let mins = toMin(r.end) - toMin(r.start);
-  if(mins <= 0) mins += 24*60;               // crosses midnight
+  if(mins <= 0) mins += 24*60;               // genuinely into the small hours
   return mins/60;
 }
 function dayTotal(day){
@@ -872,6 +954,7 @@ function buildRow(r, i, times, timeKey, isExtra){
     const tr = document.createElement("tr");
     const cls = [UNPAID.includes(r.task) ? "break" : (rowUsed(r) ? "filled" : "")];
     if(r.tp) cls.push("tpOn");
+    if(rowBackwards(r)) cls.push("bad");
     if(isExtra) cls.push("extra");
     tr.className = cls.join(" ");
 
@@ -911,15 +994,28 @@ function buildRow(r, i, times, timeKey, isExtra){
       const auto = i===0 ? null : (day.rows[i-1].end || "");
       r.start=v;
       r.startManual = !!v && v!==auto;
+      clearStaleTimes(i);          // this row's own end may now be behind it too
       commit(true);
     }, fmt12, timeKey);
+    /* The first row has no row above to follow, so its Start opens on the
+       usual start of day — one tap if that's right, spin if it isn't. */
+    if(i===0) suggestOnOpen(startSel, ()=> DEFAULT_START);
     if(r.startManual && i>0){        // row 0 is expected to be typed in; the rest aren't
       startSel.classList.add("pinned");
       startSel.title="Set by hand, so it no longer follows the row above. Clear it to go back to automatic.";
     }
     tr.appendChild(cell(startSel, "Start"));
 
-    tr.appendChild(cell(selectEl(times, r.end, v=>{ r.end=v; commit(true); }, fmt12, timeKey), "End"));
+    const endSel = selectEl(endOptions(times, r.start), r.end,
+                            v=>{ r.end=v; clearStaleTimes(i+1); commit(true); },
+                            fmt12, timeKey+":"+(r.start||""));
+    endSel.dataset.forStart = r.start || "";
+    /* Opening an empty End fills in the next increment after Start, so the
+       picker opens on it. It has to happen before the picker appears, and no
+       single event covers every platform — iOS doesn't reliably send
+       pointerdown to a select — so several are wired and the first wins. */
+    suggestOnOpen(endSel, ()=> nextAfter(times, r.start));
+    tr.appendChild(cell(endSel, "End"));
 
     tr.appendChild(cell(selectEl(TASKS, r.task, v=>{
       r.task=v;
@@ -935,7 +1031,9 @@ function buildRow(r, i, times, timeKey, isExtra){
 
     const h = rowHours(r);
     const td = document.createElement("td");
-    td.className="n"; td.dataset.label="Hours"; td.textContent = h==null ? "" : h.toFixed(2);
+    td.className="n"; td.dataset.label="Hours";
+    td.textContent = h==null ? (rowBackwards(r) ? "?" : "") : h.toFixed(2);
+    if(rowBackwards(r)) td.title="End is before Start — this row counts nothing until it's fixed";
     tr.appendChild(td);
 
     return tr;
@@ -976,6 +1074,7 @@ function refreshRowFlags(){
     tr.classList.toggle("break", unpaid);
     tr.classList.toggle("filled", used && !unpaid);
     tr.classList.toggle("tpOn", !!r.tp);
+    tr.classList.toggle("bad", rowBackwards(r));
     tr.classList.toggle("extra", !used && blankSeen);
     if(!used) blankSeen=true;
   });
@@ -1013,6 +1112,8 @@ function updateRows(){
 function refreshGrid(){
   cascade(day);
   const active = document.activeElement;
+  const times = timeOptions();
+  const timeKey = "times"+(DB.settings.allHours?"24":"");
   const trs = [...$("#rows").querySelectorAll("tr:not(.fill)")];
   trs.forEach((tr,i)=>{
     const r = day.rows[i];
@@ -1022,7 +1123,7 @@ function refreshGrid(){
        the focused one, and clearing a pinned Start has to show the cascaded
        value straight away. Text inputs are left alone so a caret isn't moved. */
     const startSel = tr.children[2].querySelector("select");
-    if(startSel){
+    if(startSel && !startSel.dataset.suggested){   // don't wipe a suggestion mid-pick
       const want = r.start || "";
       if(want && ![...startSel.options].some(o=>o.value===want)){
         const op=document.createElement("option");
@@ -1033,14 +1134,40 @@ function refreshGrid(){
     }
     if(startSel) startSel.classList.toggle("pinned", !!(r.startManual && i>0));
 
+    /* The End list is cut to times after this row's Start, so it has to be
+       rebuilt when Start moves — but never while its own picker is open. */
+    const endSel = tr.children[3].querySelector("select");
+    /* A pending suggestion is stale the moment the row's start moves, so it is
+       dropped here rather than protected — leaving it kept the old list, which
+       still offered times before the new start. */
+    if(endSel && endSel!==active && endSel.dataset.forStart !== (r.start||"")){
+      delete endSel.dataset.suggested;
+      const keep = r.end || "";
+      endSel.innerHTML = "";
+      endSel.appendChild(optionsFor(endOptions(times, r.start), fmt12, timeKey+":"+(r.start||"")));
+      if(keep && ![...endSel.options].some(o=>o.value===keep)){
+        const op=document.createElement("option");
+        op.value=keep; op.textContent=fmt12(keep);
+        endSel.appendChild(op);
+      }
+      endSel.value = keep;
+      endSel.dataset.forStart = r.start || "";
+    }
+
     const clientInp = tr.children[5].querySelector("input");
     if(clientInp && clientInp!==active && clientInp.value!==(r.client||"")) clientInp.value = r.client||"";
 
     const statusSel = tr.children[6].querySelector("select");
     if(statusSel) statusSel.className = "st-"+(r.status||"none");
 
+    /* After cascade, so the flag and the figure agree — the row's start may
+       only just have moved past its end. */
+    const back = rowBackwards(r);
+    tr.classList.toggle("bad", back);
     const h = rowHours(r);
-    tr.children[7].textContent = h==null ? "" : h.toFixed(2);
+    const hc = tr.children[7];
+    hc.textContent = h==null ? (back ? "?" : "") : h.toFixed(2);
+    hc.title = back ? "End is before Start — this row counts nothing until it's fixed" : "";
   });
 
   const firstStart = day.rows.find(r=>r.start && rowUsed(r));
@@ -1802,12 +1929,26 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.1632";
+const BUILD = "2026-08-06.1739";
+
+/* Ask the waiting worker what it is, so the prompt can say what changed. */
+function askVersion(worker){
+  return new Promise(done=>{
+    if(!worker) return done(null);
+    const ch = new MessageChannel();
+    ch.port1.onmessage = e => done(e.data);
+    try{ worker.postMessage("VERSION", [ch.port2]); }catch(e){ done(null); }
+    setTimeout(()=>done(null), 1500);            // older builds won't answer
+  });
+}
 
 function showUpdateBar(reg){
   const bar=$("#updateBar");
   if(bar.style.display==="flex") return;
   bar.style.display="flex";
+  askVersion(reg.waiting || reg.installing).then(v=>{
+    if(v && v.notes) bar.querySelector("span").textContent = "New version: " + v.notes;
+  });
   $("#updateBtn").onclick = ()=>{
     $("#updateBtn").disabled = true;
     $("#updateBtn").textContent = "Reloading…";

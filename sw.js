@@ -5,11 +5,13 @@
    one is deleted on activate. Nothing here calls skipWaiting on its own — a
    new version waits until the page asks, which is what makes the
    "new version available" prompt honest. */
-const BUILD = "2026-08-06.1632";
+const BUILD = "2026-08-06.1739";
 
 /* Cache storage is shared across the whole origin, so the beta copy at
    /timesheet/beta/ must not tidy away the live copy's cache. Namespace both
    the cache and the cleanup by the folder this worker was served from. */
+const NOTES = "Improved time entry";                          // set at deploy: a short line on what changed
+
 const PREFIX = "timesheet" + location.pathname.replace(/sw\.js$/, "");
 const CACHE  = PREFIX + BUILD;
 
@@ -38,6 +40,11 @@ self.addEventListener("activate", e=>{
 
 self.addEventListener("message", e=>{
   if(e.data === "SKIP_WAITING") self.skipWaiting();
+  /* The page asks the waiting worker what it is, so the update prompt can say
+     what's changed rather than just "a new version". */
+  if(e.data === "VERSION" && e.ports[0]){
+    e.ports[0].postMessage({build:BUILD, notes:NOTES});
+  }
 });
 
 self.addEventListener("fetch", e=>{
