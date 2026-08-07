@@ -147,3 +147,61 @@ several bugs were only visible as numbers.
 
 Clean up any test data afterwards: the preview pane shares nothing with Brian's real
 browsers, but its own storage has been wiped by careless cleanup loops more than once.
+
+---
+
+## Added since the first draft of this file
+
+**Billable.** BILLABLE lists the chargeable tasks (Onsite, Shop, Remote, Project,
+Training). dayBillable() sums them; the day's share sits beside the sheet total in
+`#billNote` and the week's closes the by-task list. It prints only when
+`settings.printBillable` is set, which toggles `body.print-billable`.
+
+**Suggested times.** `suggestOnOpen(sel, getNext)` puts a likely value into an empty
+dropdown as its picker opens — the first row's Start on `DEFAULT_START`, an End on the
+next increment after its own Start. It sets the value and **does nothing else**: no
+commit, no cascade, no rebuild. The commit is deferred to that cell's own `change` or
+`blur` and never leaves the cell. An earlier version committed from a document-level
+handler and corrupted data; see WALKTHROUGH.md.
+
+`endOptions()` cuts the End list to times after that row's Start. The list is rebuilt in
+`refreshGrid()` when `dataset.forStart` no longer matches, which also drops any pending
+suggestion — it is stale as soon as the start moves.
+
+**Backwards rows.** `rowBackwards()` catches an end that isn't after its start, compared
+by position in the time list so midnight still closes an evening. Such a row counts
+nothing, shows `?` and is tinted. `clearStaleTimes()` clears ends stranded by a pin,
+called only from the edit handlers — never from `cascade()`, so opening an old day can't
+rewrite it.
+
+**Empty days.** A day with no used rows is never stored, backed up or restored. Before
+that, a day was kept if it had a name, and every new day is seeded with the default one —
+so backups filled with 0-row dates and restoring one could put an empty record over a real
+day.
+
+**Printing.** `tr.empty` rows hide their controls on paper, so a cascaded start doesn't
+appear on a row with nothing on it and a deliberate gap prints blank. The client cell
+carries a `.echo` span beside its input, hidden on screen and printed instead, because an
+input clips where a span wraps. `tr.fill` rows pad every sheet to `PRINT_ROWS` and hold
+a `.ph` span so their height matches a filled row.
+
+**Sidebar.** Saved weeks is years → months → weeks, each folded, state in
+`settings.openYears` / `settings.openMonths`. The week panel is the selected week's
+detail. Nothing is listed in both.
+
+**Name.** `day.name` belongs to the day. `settings.name` is the default for new days,
+set in Options; the first name typed on a sheet adopts itself as that default.
+`personNameFor(dates)` picks the name for an export — the day's own, or for a week the
+first day of it that has one.
+
+## Further traps
+
+- **A constraint applies to new code too.** The no-re-render rule was established, then
+  broken an hour later by a new feature that mutated a select as its picker opened. Same
+  bug, same session.
+- **Anything reaching across rows will eventually corrupt data.** The document-level
+  commit handler fired `change` on selects the user wasn't in.
+- **Derived values must be added to `refreshGrid()`.** The TP star was missed when
+  re-rendering was removed and quietly stopped updating for a day.
+- **Test the whole set of exports, not the one you changed.** Two of four were left with
+  old filenames.

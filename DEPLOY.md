@@ -99,12 +99,15 @@ $r = Invoke-WebRequest -Uri "https://doughboy68.github.io/timesheet/index.html?c
 
 ## Tags
 
+Release tags mark what went live; `live-*` tags are rollback points, each carrying revert
+instructions in its own message.
+
 | Tag | What it marks |
 | --- | --- |
-| `v1.0` | First working version |
-| `v1.1` | Before the sidebar rework |
-| `v1.2` | Before rows grew on demand |
-| `v1.3` | UI pass complete, before the service worker |
-| `v1.4` | Before dark mode |
-| `v1.5` | Time entry improvements — currently live |
-| `live-1632` | The live build before v1.5, for rollback |
+| `v1.0`–`v1.4` | Early milestones: first working version, sidebar rework, row count, service worker, dark mode |
+| `v1.5` | Time entry improvements |
+| `v1.6` | Named exports, day-owned name, erase, empty-day fix |
+| `v1.7` | TP star, erase button marked out |
+| `v1.8` | Billable share, sidebar rework, printout |
+| `v1.9` | Billable share kept off the printout — currently live |
+| `live-1632` `live-1739` `live-2325` `live-2350` `live-1030` | Rollback points, oldest first |

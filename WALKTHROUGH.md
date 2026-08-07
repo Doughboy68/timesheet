@@ -200,8 +200,39 @@ reaches across rows will eventually corrupt data.
   silently wrong hours must be impossible, obvious nonsense should be visible, the rest is
   the user's judgement.
 
+## After the docs were first written
+
+**Named exports.** `timesheet-2026-08-06.json` said neither whose sheet it was nor what
+it covered. All four exports now read `BRIAN SEMOTIUK day 2026-08-06.json` and so on.
+
+**The Name became the day's.** Typing a name also overwrote the remembered default, so
+correcting one day silently relabelled every day made afterwards. Now the sheet's Name is
+that day's, the default lives in Options, and the first name ever typed adopts itself as
+that default — a setting nobody knows to look for is worse than none.
+
+**Erase everything**, offering a backup first and leaving a linked file alone. Brian
+confirmed the recovery path: erase, re-link the file, everything returns.
+
+**Empty days stopped being stored.** He noticed a restore listing ten dates with 0 rows,
+then spotted the real danger himself — one of those could overwrite a good day on another
+device. Fixed at four points: not stored, not backed up, not restored, not merged.
+
+**The time-picker suggestions**, which took three attempts. See the episode above.
+
+**Billable share.** Onsite, Shop, Remote, Project and Training. Shown as a percentage for
+the day and the week rather than another column, with an asterisk marking the tasks that
+make it up so it explains itself. Then made optional on the printout — it's for him, not
+for whoever receives the sheet.
+
+**The sidebar split.** He noticed the saved-days list and the week panel showed the same
+days, and that "This week" was wrong on any day but today. Rather than deleting one, they
+were split by role: a list of weeks for navigation, a panel for the selected week's
+detail — which also gave old weeks a task and billable breakdown they never had. Then
+folded by month, then by year, so the list stays the same size as the years accumulate.
+
+**Printing.** Empty rows print blank so a deliberate gap before an after-hours call-out
+stays a gap; long descriptions wrap instead of being cut off.
+
 ## Still to do
 
-Name the "Send this day" and "Send this week" exports after the person and the kind of
-export — `BRIAN SEMOTIUK day 2026-08-06.json` rather than `timesheet-2026-08-06.json` —
-so they're identifiable once they land in Files alongside other people's.
+Nothing outstanding.
