@@ -811,6 +811,24 @@ function rowBackwards(r){
   if(si < 0 || ei < 0) return false;
   return ei <= si;
 }
+/* After a Start is pinned or an End changed, the rows below re-chain and their
+   old end times can be left behind — either sitting before their own new
+   start, or stranded on a row that no longer has one. Clear those.
+
+   Deliberately called from the edit handlers only, never from cascade(), so
+   opening an old day can't quietly rewrite it. It's one undo step. */
+function clearStaleTimes(from){
+  const t = timeOptions();
+  for(let i=Math.max(0,from); i<day.rows.length; i++){
+    const r = day.rows[i];
+    if(!r.end) continue;
+    const start = (r.startManual || i===0) ? r.start : (day.rows[i-1].end || "");
+    if(!start){ r.end=""; continue; }               // stranded with nothing to measure from
+    const si=t.indexOf(start), ei=t.indexOf(r.end);
+    if(si>=0 && ei>=0 && ei<=si) r.end="";          // no longer after its start
+  }
+}
+
 function rowHours(r){
   if(!r.start || !r.end) return null;
   if(!r.task || UNPAID.includes(r.task)) return null;   // no task counts no time, as Lunch and Off do
@@ -976,6 +994,7 @@ function buildRow(r, i, times, timeKey, isExtra){
       const auto = i===0 ? null : (day.rows[i-1].end || "");
       r.start=v;
       r.startManual = !!v && v!==auto;
+      clearStaleTimes(i);          // this row's own end may now be behind it too
       commit(true);
     }, fmt12, timeKey);
     /* The first row has no row above to follow, so its Start opens on the
@@ -988,7 +1007,8 @@ function buildRow(r, i, times, timeKey, isExtra){
     tr.appendChild(cell(startSel, "Start"));
 
     const endSel = selectEl(endOptions(times, r.start), r.end,
-                            v=>{ r.end=v; commit(true); }, fmt12, timeKey+":"+(r.start||""));
+                            v=>{ r.end=v; clearStaleTimes(i+1); commit(true); },
+                            fmt12, timeKey+":"+(r.start||""));
     endSel.dataset.forStart = r.start || "";
     /* Opening an empty End fills in the next increment after Start, so the
        picker opens on it. It has to happen before the picker appears, and no
@@ -1906,7 +1926,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.1715";
+const BUILD = "2026-08-06.1722";
 
 function showUpdateBar(reg){
   const bar=$("#updateBar");
