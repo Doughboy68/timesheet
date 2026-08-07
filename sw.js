@@ -5,12 +5,12 @@
    one is deleted on activate. Nothing here calls skipWaiting on its own — a
    new version waits until the page asks, which is what makes the
    "new version available" prompt honest. */
-const BUILD = "2026-08-07.1030";
+const BUILD = "2026-08-07.1037";
 
 /* Cache storage is shared across the whole origin, so the beta copy at
    /timesheet/beta/ must not tidy away the live copy's cache. Namespace both
    the cache and the cleanup by the folder this worker was served from. */
-const NOTES = "Billable share, tidier sidebar and printout";                          // set at deploy: a short line on what changed
+const NOTES = "Billable share off the printout";                          // set at deploy: a short line on what changed
 
 const PREFIX = "timesheet" + location.pathname.replace(/sw\.js$/, "");
 const CACHE  = PREFIX + BUILD;

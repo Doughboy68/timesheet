@@ -374,6 +374,10 @@
       color-scheme:light;
     }
     body{background:#fff;color:#000}
+    /* The billable share is for you, not for whoever the sheet goes to.
+       Off unless Options says otherwise. */
+    #billNote{display:none}
+    body.print-billable #billNote{display:inline}
     #side,.hint,.toast,.noprint{display:none !important}
     /* A row with nothing entered still prints as a ruled line, but without the
        start time the cascade left sitting on it — that time belongs to an entry
@@ -514,6 +518,9 @@
       </label>
       <label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:2px 0">
         <input type="checkbox" id="allHours"> Show all 24 hours in time lists
+      </label>
+      <label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:2px 0">
+        <input type="checkbox" id="printBillable"> Include billable share when printing
       </label>
       <label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:6px 0">
         Theme
@@ -1732,6 +1739,15 @@ $("#redoBtn").onclick = ()=>redo();
 
 $("#allHours").onchange = e=>{ DB.settings.allHours=e.target.checked; save(true); render(); };
 
+function applyPrintBillable(){
+  document.body.classList.toggle("print-billable", !!DB.settings.printBillable);
+}
+$("#printBillable").onchange = e=>{
+  DB.settings.printBillable = e.target.checked;
+  save(true);
+  applyPrintBillable();
+};
+
 /* Theme: follow the device unless told otherwise. */
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 function applyTheme(){
@@ -2149,7 +2165,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-07.1030";
+const BUILD = "2026-08-07.1037";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
@@ -2205,6 +2221,8 @@ if("serviceWorker" in navigator && location.protocol==="https:"){
 $("#logoSide").src = LOGO;
 $("#logoMain").src = LOGO;
 $("#allHours").checked = !!DB.settings.allHours;
+$("#printBillable").checked = !!DB.settings.printBillable;   // off unless turned on
+applyPrintBillable();
 $("#defaultName").value = DB.settings.name || "";
 $("#theme").value = DB.settings.theme || "auto";
 applyTheme();
