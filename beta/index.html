@@ -200,6 +200,9 @@
   table.grid select.st-WFP{background:var(--wfp)}
   /* a start time set by hand, which no longer follows the row above */
   table.grid select.pinned{box-shadow:inset 2px 0 0 var(--accent)}
+  /* end before start — counts nothing, and says so rather than hiding */
+  table.grid tbody tr.bad td{background:var(--wfp)}
+  table.grid tbody tr.bad td.n{color:var(--accent);font-weight:700}
   col.c-so{width:78px} col.c-tp{width:30px} col.c-t{width:96px} col.c-task{width:104px}
   col.c-st{width:74px} col.c-h{width:62px}
   tfoot td{border:1px solid var(--line);padding:5px 6px;font-weight:700;background:var(--head)}
@@ -797,11 +800,23 @@ function cascade(day){
     r.start = i===0 ? r.start : (day.rows[i-1].end || "");
   }
 }
+/* An end that isn't after its start. Happens when a Start is pinned or an End
+   above is changed: the rows below re-chain, and ends chosen earlier can end
+   up before their own new start. Compared by position in the time list, so
+   midnight — which sits at the end — still closes an evening properly. */
+function rowBackwards(r){
+  if(!r.start || !r.end) return false;
+  const t = timeOptions();
+  const si = t.indexOf(r.start), ei = t.indexOf(r.end);
+  if(si < 0 || ei < 0) return false;
+  return ei <= si;
+}
 function rowHours(r){
   if(!r.start || !r.end) return null;
   if(!r.task || UNPAID.includes(r.task)) return null;   // no task counts no time, as Lunch and Off do
+  if(rowBackwards(r)) return null;           // don't quietly bill it as crossing midnight
   let mins = toMin(r.end) - toMin(r.start);
-  if(mins <= 0) mins += 24*60;               // crosses midnight
+  if(mins <= 0) mins += 24*60;               // genuinely into the small hours
   return mins/60;
 }
 function dayTotal(day){
@@ -921,6 +936,7 @@ function buildRow(r, i, times, timeKey, isExtra){
     const tr = document.createElement("tr");
     const cls = [UNPAID.includes(r.task) ? "break" : (rowUsed(r) ? "filled" : "")];
     if(r.tp) cls.push("tpOn");
+    if(rowBackwards(r)) cls.push("bad");
     if(isExtra) cls.push("extra");
     tr.className = cls.join(" ");
 
@@ -995,7 +1011,9 @@ function buildRow(r, i, times, timeKey, isExtra){
 
     const h = rowHours(r);
     const td = document.createElement("td");
-    td.className="n"; td.dataset.label="Hours"; td.textContent = h==null ? "" : h.toFixed(2);
+    td.className="n"; td.dataset.label="Hours";
+    td.textContent = h==null ? (rowBackwards(r) ? "?" : "") : h.toFixed(2);
+    if(rowBackwards(r)) td.title="End is before Start — this row counts nothing until it's fixed";
     tr.appendChild(td);
 
     return tr;
@@ -1036,6 +1054,7 @@ function refreshRowFlags(){
     tr.classList.toggle("break", unpaid);
     tr.classList.toggle("filled", used && !unpaid);
     tr.classList.toggle("tpOn", !!r.tp);
+    tr.classList.toggle("bad", rowBackwards(r));
     tr.classList.toggle("extra", !used && blankSeen);
     if(!used) blankSeen=true;
   });
@@ -1118,8 +1137,14 @@ function refreshGrid(){
     const statusSel = tr.children[6].querySelector("select");
     if(statusSel) statusSel.className = "st-"+(r.status||"none");
 
+    /* After cascade, so the flag and the figure agree — the row's start may
+       only just have moved past its end. */
+    const back = rowBackwards(r);
+    tr.classList.toggle("bad", back);
     const h = rowHours(r);
-    tr.children[7].textContent = h==null ? "" : h.toFixed(2);
+    const hc = tr.children[7];
+    hc.textContent = h==null ? (back ? "?" : "") : h.toFixed(2);
+    hc.title = back ? "End is before Start — this row counts nothing until it's fixed" : "";
   });
 
   const firstStart = day.rows.find(r=>r.start && rowUsed(r));
@@ -1881,7 +1906,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.1706";
+const BUILD = "2026-08-06.1715";
 
 function showUpdateBar(reg){
   const bar=$("#updateBar");
