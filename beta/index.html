@@ -241,6 +241,13 @@
   }
   .toast.show{opacity:.92}
   .hint{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5}
+  /* The column reference belongs with the other notes, not among the controls:
+     it's read while learning the sheet and rarely afterwards. */
+  .linkish{
+    display:inline;margin-top:2px;padding:0;border:0;background:none;
+    font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer
+  }
+  .linkish:hover{color:var(--accent-dk)}
   .fstat{font-size:11px;line-height:1.45;color:var(--muted);margin-bottom:6px;word-break:break-word}
   .fstat b{color:var(--ink)}
   .fstat.ok{color:var(--okink)} .fstat.warn{color:var(--warnink)} .fstat.err{color:var(--accent)}
@@ -440,7 +447,6 @@
           </svg>Redo</button>
       </div>
       <button class="btn primary" id="printBtn">Print / PDF</button>
-      <button class="btn" id="refBtn">? What goes in each column</button>
     </div>
 
     <div class="sec">
@@ -557,7 +563,8 @@
     <p class="hint">
       Start times fill in automatically from the previous row's end time — just enter End times as you go.
       Everything saves as you type. Lunch and Off rows are excluded from the total.<br>
-      Link a data file in the sidebar to keep two computers in sync through OneDrive.
+      Link a data file in the sidebar to keep two computers in sync through OneDrive.<br>
+      <button type="button" class="linkish noprint" id="refLink">What goes in each column</button>
     </p>
   </main>
 </div>
@@ -1621,8 +1628,8 @@ function ref(show){
   $("#refWrap").hidden = !show;
   if(show){ nav(false); $("#refClose").focus(); }
 }
-$("#refBtn").onclick = ()=>ref(true);
-$("#refBtn2").onclick = ()=>ref(true);
+$("#refLink").onclick = ()=>ref(true);      // under the sheet, with the other notes
+$("#refBtn2").onclick = ()=>ref(true);      // and the ? in the phone's top bar
 $("#refClose").onclick = ()=>ref(false);
 $("#refWrap").onclick = e=>{ if(e.target.id==="refWrap") ref(false); };   // click the backdrop
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") ref(false); });
@@ -2058,7 +2065,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-07.0912";
+const BUILD = "2026-08-07.0919";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
