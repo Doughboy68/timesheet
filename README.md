@@ -30,6 +30,12 @@ icon.
 The header carries Name, Date, and two figures that look after themselves: **Work Start
 Time** (the first start) and **Shop Left Time** (the last end).
 
+**The Name belongs to the day it's on.** New days start from the default under *Options →
+Default name*; the first name ever typed on a sheet adopts itself as that default, so
+there's nothing to set up. Correcting a name afterwards changes that day only — days
+already saved keep the name they were filed under, which is what makes an exported or
+reprinted sheet still say who it belonged to.
+
 **What doesn't count toward the total:** Lunch, Off, and any row with no Task chosen.
 That matches the original workbook, whose total only ever summed the named tasks.
 

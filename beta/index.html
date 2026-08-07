@@ -464,6 +464,13 @@
 
     <details class="sec fold" data-fold="options">
       <summary>Options</summary>
+      <label style="display:block;font-size:12px;padding:2px 0 6px">
+        Default name, used on new days
+        <input type="text" id="defaultName" autocomplete="off" placeholder="Your name"
+               style="width:100%;margin-top:3px;font:inherit;padding:4px 5px;
+                      border:1px solid var(--line);border-radius:5px;
+                      background:var(--field);color:var(--ink)">
+      </label>
       <label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:2px 0">
         <input type="checkbox" id="allHours"> Show all 24 hours in time lists
       </label>
@@ -1410,7 +1417,20 @@ function goto(date){
 }
 
 /* ---------------- actions ---------------- */
-$("#fName").oninput = e=>{ day.name=e.target.value; DB.settings.name=e.target.value; commit(); };
+/* The sheet's Name belongs to that day alone, so correcting one day can't
+   silently relabel every day made afterwards. The exception is the very first
+   name ever typed: adopting it as the default saves setting up something
+   nobody would think to look for, and says where to change it. */
+$("#fName").oninput = e=>{ day.name=e.target.value; commit(); };
+$("#fName").onchange = e=>{
+  const v=e.target.value.trim();
+  if(!v || DB.settings.name) return;
+  DB.settings.name = v;
+  $("#defaultName").value = v;
+  save(true);
+  toast("Saved as your default name — change it under Options");
+};
+$("#defaultName").oninput = e=>{ DB.settings.name = e.target.value; save(); };
 $("#fDate").onchange = e=>{ if(e.target.value) goto(e.target.value); };
 $("#prevDay").onclick = ()=>goto(shiftISO(current,-1));
 $("#nextDay").onclick = ()=>goto(shiftISO(current,1));
@@ -1948,7 +1968,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.2252";
+const BUILD = "2026-08-06.2303";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
@@ -2004,6 +2024,7 @@ if("serviceWorker" in navigator && location.protocol==="https:"){
 $("#logoSide").src = LOGO;
 $("#logoMain").src = LOGO;
 $("#allHours").checked = !!DB.settings.allHours;
+$("#defaultName").value = DB.settings.name || "";
 $("#theme").value = DB.settings.theme || "auto";
 applyTheme();
 $("#buildId").textContent = BUILD + (IS_BETA ? " (beta)" : "");
