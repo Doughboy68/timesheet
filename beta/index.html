@@ -120,11 +120,17 @@
   .weekRow.on{background:var(--todaybg);box-shadow:inset 3px 0 0 var(--accent);font-weight:600}
   .weekRow .mn{flex:1}
   .weekRow small{color:var(--muted);font-variant-numeric:tabular-nums}
-  .monthDiv{
-    padding:5px 8px 3px;font-size:10px;text-transform:uppercase;letter-spacing:.07em;
-    color:var(--muted);background:var(--head);border-bottom:1px solid var(--line);
-    position:sticky;top:0;z-index:1
+  /* Months fold away; only the ones you open show their weeks. */
+  .monthRow{
+    display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;
+    padding:6px 8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--muted);background:var(--head);border-bottom:1px solid var(--line)
   }
+  .monthRow:hover{background:var(--hover2);color:var(--ink)}
+  .monthRow .car{font-size:9px;width:9px}
+  .monthRow .mn{flex:1}
+  .monthRow small{font-variant-numeric:tabular-nums}
+  #dayList .weekRow{padding-left:23px}       /* sits under its month */
   .empty{padding:10px;color:var(--muted);text-align:center;font-size:12px}
 
   .wk{width:100%;border-collapse:collapse;font-size:12px}
@@ -1395,20 +1401,35 @@ function renderSidebar(){
     const order=[], byWeek={};
     dates.forEach(d=>{ const w=weekStart(d); if(!byWeek[w]){ byWeek[w]=[]; order.push(w); } byWeek[w].push(d); });
     const here = weekStart(current);
+    const weekTotal = w => byWeek[w].reduce((s,d)=>s+dayTotal(DB.days[d]),0);
+
+    /* Months are folded away by default. Almost all work is on today, reached
+       by Prev/Next, so this list is for the occasional trip back and shouldn't
+       grow down the sidebar as the year does. What you open is remembered. */
+    const openM = DB.settings.openMonths || (DB.settings.openMonths = {});
+    const monthTotal = {};
+    order.forEach(w=>{ const m=w.slice(0,7); monthTotal[m]=(monthTotal[m]||0)+weekTotal(w); });
+
     let lastMonth=null;
     order.forEach(w=>{
       const m=w.slice(0,7);
       if(m!==lastMonth){
         lastMonth=m;
+        const open=!!openM[m];
         const md=document.createElement("div");
-        md.className="monthDiv"; md.textContent=monthLabel(m);
+        md.className="monthRow"+(open?" open":"");
+        md.innerHTML=`<span class="car">${open?"&#9662;":"&#9656;"}</span>`+
+                     `<span class="mn">${monthLabel(m)}</span>`+
+                     `<small>${monthTotal[m].toFixed(2)}</small>`;
+        md.onclick=()=>{ openM[m]=!open; save(); renderSidebar(); };
         list.appendChild(md);
       }
-      const tot = byWeek[w].reduce((s,d)=>s+dayTotal(DB.days[d]),0);
+      if(!openM[m]) return;                       // month folded: weeks stay hidden
+
       const n = byWeek[w].length;
       const h=document.createElement("div");
       h.className="weekRow"+(w===here?" on":"");
-      h.innerHTML=`<span class="mn">${weekLabel(w)}</span><small>${tot.toFixed(2)}</small>`;
+      h.innerHTML=`<span class="mn">${weekLabel(w)}</span><small>${weekTotal(w).toFixed(2)}</small>`;
       h.title=`${n} day${n>1?"s":""} with entries — click to open this week`;
       h.onclick=()=>goto(byWeek[w].slice().sort()[0]);   // its earliest day with entries
       list.appendChild(h);
@@ -2104,7 +2125,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-07.1013";
+const BUILD = "2026-08-07.1017";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
