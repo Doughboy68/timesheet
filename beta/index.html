@@ -1137,8 +1137,11 @@ function refreshGrid(){
     /* The End list is cut to times after this row's Start, so it has to be
        rebuilt when Start moves — but never while its own picker is open. */
     const endSel = tr.children[3].querySelector("select");
-    if(endSel && endSel!==active && !endSel.dataset.suggested
-       && endSel.dataset.forStart !== (r.start||"")){
+    /* A pending suggestion is stale the moment the row's start moves, so it is
+       dropped here rather than protected — leaving it kept the old list, which
+       still offered times before the new start. */
+    if(endSel && endSel!==active && endSel.dataset.forStart !== (r.start||"")){
+      delete endSel.dataset.suggested;
       const keep = r.end || "";
       endSel.innerHTML = "";
       endSel.appendChild(optionsFor(endOptions(times, r.start), fmt12, timeKey+":"+(r.start||"")));
@@ -1926,7 +1929,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.1722";
+const BUILD = "2026-08-06.1728";
 
 function showUpdateBar(reg){
   const bar=$("#updateBar");
