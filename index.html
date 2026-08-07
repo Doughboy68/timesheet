@@ -459,11 +459,19 @@
       <button class="btn" id="exportJson">Backup all data (JSON)</button>
       <button class="btn" id="importJson">Restore from backup…</button>
       <button class="btn danger" id="clearDay">Clear this day</button>
+      <button class="btn danger" id="eraseAll">Erase everything on this device…</button>
       <input type="file" id="fileIn" accept=".json,application/json" style="display:none">
     </details>
 
     <details class="sec fold" data-fold="options">
       <summary>Options</summary>
+      <label style="display:block;font-size:12px;padding:2px 0 6px">
+        Default name, used on new days
+        <input type="text" id="defaultName" autocomplete="off" placeholder="Your name"
+               style="width:100%;margin-top:3px;font:inherit;padding:4px 5px;
+                      border:1px solid var(--line);border-radius:5px;
+                      background:var(--field);color:var(--ink)">
+      </label>
       <label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:2px 0">
         <input type="checkbox" id="allHours"> Show all 24 hours in time lists
       </label>
@@ -890,7 +898,7 @@ $("#fName").addEventListener("input", preEdit, true);
 function applyState(s){
   day = {date:current, name:s.name, rows:JSON.parse(JSON.stringify(s.rows))};
   DB.days[current]=day;
-  if(!dayUsed(day) && !day.name) delete DB.days[current];
+  if(!dayUsed(day)) delete DB.days[current];   // a name alone is not worth a record
   markDirty(current);
   rowSnap=null;
   save(); render();
@@ -1275,7 +1283,7 @@ function commit(recalc){
   DB.days[current] = day;
   markDirty(current);
   noteChange();
-  if(!dayUsed(day) && !day.name) delete DB.days[current];
+  if(!dayUsed(day)) delete DB.days[current];   // a name alone is not worth a record
   save();
   updateRows();                                          // grow, trim and re-flag the cards
   if(recalc) refreshGrid();                              // cascade, hours, header times
@@ -1410,7 +1418,20 @@ function goto(date){
 }
 
 /* ---------------- actions ---------------- */
-$("#fName").oninput = e=>{ day.name=e.target.value; DB.settings.name=e.target.value; commit(); };
+/* The sheet's Name belongs to that day alone, so correcting one day can't
+   silently relabel every day made afterwards. The exception is the very first
+   name ever typed: adopting it as the default saves setting up something
+   nobody would think to look for, and says where to change it. */
+$("#fName").oninput = e=>{ day.name=e.target.value; commit(); };
+$("#fName").onchange = e=>{
+  const v=e.target.value.trim();
+  if(!v || DB.settings.name) return;
+  DB.settings.name = v;
+  $("#defaultName").value = v;
+  save(true);
+  toast("Saved as your default name — change it under Options");
+};
+$("#defaultName").oninput = e=>{ DB.settings.name = e.target.value; save(); };
 $("#fDate").onchange = e=>{ if(e.target.value) goto(e.target.value); };
 $("#prevDay").onclick = ()=>goto(shiftISO(current,-1));
 $("#nextDay").onclick = ()=>goto(shiftISO(current,1));
@@ -1418,11 +1439,30 @@ $("#todayBtn").onclick = ()=>goto(todayISO());
 /* Save-as-PDF takes its filename from the page title, so name it for the day
    being printed and put the title back afterwards. */
 let BASE_TITLE = document.title;          // beta relabels this at boot
-function printTitle(){
-  const nm = (day.name||"").trim()
+function cleanName(s){
+  return (s||"").trim()
     .replace(/[\\/:*?"<>|]/g,"")        // characters a filename can't carry
     .replace(/\s+/g," ");
-  return ["Timesheet", nm, current].filter(Boolean).join(" ");
+}
+/* The name written on the sheet itself. For a week that's the first day of the
+   week that carries one — they should all be the same person, but if they
+   aren't, the week is named after the day it starts on rather than whichever
+   day happened to be open. Falls back to the open day, then the remembered
+   name. */
+function personNameFor(dates){
+  for(const d of (dates||[])){
+    const rec = DB.days[d];
+    if(rec && cleanName(rec.name)) return cleanName(rec.name);
+  }
+  return cleanName(day.name) || cleanName(DB.settings.name);
+}
+function printTitle(){
+  return ["Timesheet", personNameFor([current]), current].filter(Boolean).join(" ");
+}
+/* e.g. "BRIAN SEMOTIUK day 2026-08-06.json" — says whose it is and whether it
+   covers a day or a week, once it's sitting in Files next to other people's. */
+function exportName(kind, dates, date, ext){
+  return [(personNameFor(dates) || "Timesheet"), kind, date].join(" ") + (ext || ".json");
 }
 window.addEventListener("beforeprint", ()=>{ document.title = printTitle(); });
 window.addEventListener("afterprint",  ()=>{ document.title = BASE_TITLE; });
@@ -1611,7 +1651,8 @@ $("#exportCsv").onclick = ()=>{
     });
     lines.push([d,"","","","","","","Total",dayTotal(dd).toFixed(2)].join(","));
   });
-  download("timesheet-"+todayISO()+".csv", "﻿"+lines.join("\r\n"), "text/csv");  // BOM so Excel reads UTF-8
+  download(exportName("all days", [], todayISO(), ".csv"),
+           "﻿"+lines.join("\r\n"), "text/csv");                    // BOM so Excel reads UTF-8
 };
 /* A partial backup: only the dates asked for. Restoring it touches those
    dates and nothing else, so a phone holding a couple of days can be merged
@@ -1624,17 +1665,72 @@ function exportDays(dates, name){
   save(true);
   download(name, JSON.stringify({version:1, partial:true, settings:DB.settings, days}, null, 2), "application/json");
 }
-$("#sendDay").onclick = ()=> exportDays([current], "timesheet-"+current+".json");
+$("#sendDay").onclick = ()=> exportDays([current], exportName("day", [current], current));
 $("#sendWeek").onclick = ()=>{
   const mon=weekStart(current);
   const week=Array.from({length:7},(_,i)=>shiftISO(mon,i));
-  exportDays(week, "timesheet-week-"+mon+".json");
+  exportDays(week, exportName("week", week, mon));   // named after the week's first day
 };
+
+/* A backup of what's actually there — days holding nothing are left out, so a
+   restore isn't a list of empty dates. */
+function backupPayload(){
+  const days={};
+  Object.keys(DB.days).forEach(d=>{ if(dayUsed(DB.days[d])) days[d]=DB.days[d]; });
+  return JSON.stringify({version:1, settings:DB.settings, days}, null, 2);
+}
 
 $("#exportJson").onclick = ()=>{
   save(true);
-  download("timesheet-backup-"+todayISO()+".json", JSON.stringify(DB,null,2), "application/json");
+  download(exportName("backup", [], todayISO()), backupPayload(), "application/json");
 };
+/* Start again from nothing — for handing a clean copy to someone else, or
+   clearing out test data. Offers the backup first, because this is the only
+   copy and there is no undo for it. The linked data file itself is left
+   alone; only the link to it is dropped. */
+$("#eraseAll").onclick = async ()=>{
+  const days = Object.keys(DB.days).filter(d=>dayUsed(DB.days[d])).length;
+
+  if(days && confirm(
+      `Download a backup first?\n\n`+
+      `${days} saved day${days>1?"s":""} exist only on this device. `+
+      `OK to save a backup now, or Cancel to skip it.`)){
+    await download(exportName("backup", [], todayISO()), backupPayload(), "application/json");
+    await new Promise(r=>setTimeout(r,600));
+  }
+
+  if(!confirm(
+      `Erase everything on this device?\n\n`+
+      `• ${days} saved day${days===1?"":"s"}\n`+
+      `• your name, theme and options\n`+
+      `• the link to a data file (the file itself is left as it is)\n\n`+
+      `This cannot be undone.`)) return;
+
+  if(fh){ fh=null; fhName=""; try{ await idbSet(null); }catch(e){} hideBanner(); }
+  try{
+    localStorage.removeItem(KEY);
+    localStorage.removeItem(KEY+"_dirty");
+  }catch(e){ console.error(e); }
+  dirty.clear();
+
+  DB = {version:1, settings:{name:"", allHours:false}, days:{}};
+  current = todayISO();
+  day = getDay(current);
+  openWeeks = new Set([weekStart(current)]);
+  rowSnap = null;
+  optCache.clear();                       // option lists depend on the settings
+  undoReset();
+
+  $("#fName").value = "";
+  $("#defaultName").value = "";
+  $("#allHours").checked = false;
+  $("#theme").value = "auto";
+  applyTheme();
+  if(FSA) fileStatus("Not linked — data is stored in this browser only.");
+  render();
+  toast("Everything erased — this device is back to a fresh start");
+};
+
 $("#importJson").onclick = ()=> $("#fileIn").click();
 $("#fileIn").onchange = e=>{
   const f=e.target.files[0]; if(!f) return;
@@ -1643,6 +1739,14 @@ $("#fileIn").onchange = e=>{
     try{
       const d=JSON.parse(fr.result);
       if(!d || typeof d!=="object" || !d.days) throw new Error("Not a timesheet backup");
+      /* Older files carry day records that hold nothing. Drop them here so
+         they neither clutter the list below nor come back into storage. */
+      Object.keys(d.days).forEach(k=>{ if(!dayUsed(d.days[k])) delete d.days[k]; });
+      if(!Object.keys(d.days).length){
+        alert("That file holds no entries, so there is nothing to restore.\n\n"+
+              "Nothing on this device has been changed.");
+        return;
+      }
       const mine=Object.keys(DB.days).length, dates=Object.keys(d.days).sort();
       /* Show what each date is worth on both sides. A whole day is replaced,
          not merged row by row, so a thin incoming day can wipe a full one. */
@@ -1744,6 +1848,7 @@ function mergeIn(data){
   const incoming = data.days;
   Object.keys(incoming).forEach(d=>{
     if(dirty.has(d)) return;                // edited here since the last sync — keep ours
+    if(!dayUsed(incoming[d])) return;       // empty records from older files aren't worth carrying
     DB.days[d] = incoming[d];
   });
 }
@@ -1929,7 +2034,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.1739";
+const BUILD = "2026-08-06.2325";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
@@ -1985,6 +2090,7 @@ if("serviceWorker" in navigator && location.protocol==="https:"){
 $("#logoSide").src = LOGO;
 $("#logoMain").src = LOGO;
 $("#allHours").checked = !!DB.settings.allHours;
+$("#defaultName").value = DB.settings.name || "";
 $("#theme").value = DB.settings.theme || "auto";
 applyTheme();
 $("#buildId").textContent = BUILD + (IS_BETA ? " (beta)" : "");
