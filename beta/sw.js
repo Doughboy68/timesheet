@@ -5,7 +5,7 @@
    one is deleted on activate. Nothing here calls skipWaiting on its own — a
    new version waits until the page asks, which is what makes the
    "new version available" prompt honest. */
-const BUILD = "2026-08-07.0902";
+const BUILD = "2026-08-07.0912";
 
 /* Cache storage is shared across the whole origin, so the beta copy at
    /timesheet/beta/ must not tidy away the live copy's cache. Namespace both

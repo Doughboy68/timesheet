@@ -164,8 +164,8 @@
   .sheetHead img{width:56px;height:auto}
   .logoSpacer{width:56px}
 
-  /* one line: Name, Date, Work Start, Shop Left. The fields shrink rather
-     than wrap, so Shop Left stays beside Work Start at any width. */
+  /* one line: Name, Date, Work Start, Work End. The fields shrink rather
+     than wrap, so Work End stays beside Work Start at any width. */
   .meta{display:flex;gap:18px;flex-wrap:nowrap;margin-bottom:10px;align-items:flex-end}
   .fld{display:flex;align-items:center;gap:6px;min-width:0}
   .fld label{font-weight:600;font-size:12px;white-space:nowrap;flex:0 0 auto}
@@ -385,7 +385,7 @@
     td.tp button{color:#000;text-align:center}
     table.grid select.pinned{box-shadow:none}   /* screen-only marker */
     .fld input,.ro{border-bottom:1px solid #999;background:transparent}
-    /* keep Name, Date, Work Start and Shop Left on one line — the paper is
+    /* keep Name, Date, Work Start and Work End on one line — the paper is
        narrower than the screen, so they were wrapping onto a second row */
     .meta{flex-wrap:nowrap;gap:14px;align-items:flex-end}
     .meta .fld{flex:0 1 auto;min-width:0}
@@ -521,7 +521,7 @@
         <div class="fld"><label for="fName">Name:</label><input type="text" id="fName" autocomplete="off"></div>
         <div class="fld"><label for="fDate">Date:</label><input type="date" id="fDate"></div>
         <div class="fld"><label>Work Start Time:</label><span class="ro" id="fStart">—</span></div>
-        <div class="fld"><label>Shop Left Time:</label><span class="ro" id="fEnd">—</span></div>
+        <div class="fld"><label>Work End Time:</label><span class="ro" id="fEnd">—</span></div>
       </div>
 
       <table class="grid">
@@ -2058,7 +2058,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-07.0902";
+const BUILD = "2026-08-07.0912";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){

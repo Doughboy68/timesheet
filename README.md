@@ -28,7 +28,7 @@ icon.
 | Hours | Worked out from Start and End |
 
 The header carries Name, Date, and two figures that look after themselves: **Work Start
-Time** (the first start) and **Shop Left Time** (the last end).
+Time** (the first start) and **Work End Time** (the last end).
 
 **The Name belongs to the day it's on.** New days start from the default under *Options →
 Default name*; the first name ever typed on a sheet adopts itself as that default, so
