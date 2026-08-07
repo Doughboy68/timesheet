@@ -145,4 +145,5 @@ The version in use is under **?** → *What goes in each column*, at the top.
 | `beta/` | The same set, deployed separately for testing |
 
 `DEPLOY.md` covers releasing and rolling back. `DEVELOPMENT.md` covers how the code is put
-together and the traps that have already been fallen into.
+together and the traps that have already been fallen into. `WALKTHROUGH.md` records how it
+got here and why each decision was taken.
