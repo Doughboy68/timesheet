@@ -190,6 +190,7 @@
     width:100%;border:0;background:transparent;font:inherit;padding:3px 5px;color:inherit
   }
   table.grid input:focus,table.grid select:focus{outline:2px solid var(--sel);outline-offset:-2px;background:var(--selbg)}
+  .echo{display:none}                        /* printed instead of the input */
   td.tp{padding:0}
   td.tp button{
     width:100%;height:100%;min-height:22px;border:0;background:transparent;
@@ -367,6 +368,14 @@
        not yet made, and on paper it just looks unfinished. */
     table.grid tbody tr.empty select,
     table.grid tbody tr.empty input{visibility:hidden}
+
+    /* Print the client as text, not as an input: it wraps onto a second line
+       and takes the row's height with it, instead of being cut off. */
+    table.grid td.cl input{display:none}
+    table.grid td.cl .echo{
+      display:block;padding:2px 4px;white-space:normal;overflow-wrap:anywhere;line-height:1.25
+    }
+    table.grid td{height:auto}                    /* let a wrapped row grow */
 
     table.grid tbody tr.fill{display:table-row}   /* pad every printed sheet to PRINT_ROWS */
     table.grid tbody tr.fill td{height:auto;padding:0}
@@ -1009,6 +1018,8 @@ function buildRow(r, i, times, timeKey, isExtra){
             r.client=c;
             const inp=tr.children[5].querySelector("input");   // update in place…
             if(inp) inp.value=c;
+            const echo=tr.children[5].querySelector(".echo");
+            if(echo) echo.textContent=c;
           }
         }
         tr.classList.toggle("filled", rowUsed(r));
@@ -1069,7 +1080,17 @@ function buildRow(r, i, times, timeKey, isExtra){
       commit(true);
     }, null, "tasks"), "Task"));
 
-    tr.appendChild(cell(inputEl(r.client, "dlClient", v=>{ r.client=v; commit(); }), "CL/DES"));
+    /* An <input> clips rather than wraps, so a long client name is cut off on
+       paper. Keep a copy of the text beside it that prints instead and can run
+       to a second line, growing the row. */
+    const clientEcho = document.createElement("span");
+    clientEcho.className = "echo";
+    clientEcho.textContent = r.client || "";
+    const clientTd = cell(inputEl(r.client, "dlClient",
+      v=>{ r.client=v; clientEcho.textContent=v; commit(); }), "CL/DES");
+    clientTd.classList.add("cl");
+    clientTd.appendChild(clientEcho);
+    tr.appendChild(clientTd);
 
     const st = selectEl(STATUS, r.status, v=>{ r.status=v; commit(true); }, null, "status");
     st.className = "st-"+(r.status||"none");
@@ -1203,6 +1224,8 @@ function refreshGrid(){
 
     const clientInp = tr.children[5].querySelector("input");
     if(clientInp && clientInp!==active && clientInp.value!==(r.client||"")) clientInp.value = r.client||"";
+    const clientEcho = tr.children[5].querySelector(".echo");   // the copy that prints
+    if(clientEcho) clientEcho.textContent = r.client || "";
 
     const tpBtn = tr.children[1].querySelector("button");
     if(tpBtn){                                   // keep it right after undo, import, day change
@@ -2081,7 +2104,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-07.1007";
+const BUILD = "2026-08-07.1013";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
