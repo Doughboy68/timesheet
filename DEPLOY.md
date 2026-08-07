@@ -6,8 +6,20 @@ no Actions workflow of our own.
 - Live: `/timesheet/` ← repo root
 - Beta: `/timesheet/beta/` ← the `beta/` folder
 
-The working copy is `D:\Claude\timesheet\timesheet.html`; it becomes `index.html` in the
-repo. `sw.js`, the manifest and the icons are copied across as they are.
+Two folders, deliberately separate:
+
+| Path | What it is |
+| --- | --- |
+| `D:\Claude\timesheet` | The working copy. **Not a git repo.** `timesheet.html` is edited here, along with `sw.js` and the docs |
+| `D:\Claude\timesheet-repo` | The git clone that gets pushed. `timesheet.html` lands here as `index.html` |
+
+They're split because the file is called `timesheet.html` while GitHub Pages needs
+`index.html`. Deploying copies from the first to the second, renaming as it goes; `sw.js`,
+the manifest, the icons and the docs are copied across unchanged.
+
+If the clone is missing, recreate it:
+
+`git clone https://github.com/Doughboy68/timesheet.git D:\Claude\timesheet-repo`
 
 ## The rule
 
@@ -30,7 +42,7 @@ mangles every non-ASCII character in the file — it has happened, and the publi
 full of `â€` sequences before anyone noticed.
 
 ```powershell
-$s    = '<path to repo clone>'
+$s    = 'D:\Claude\timesheet-repo'
 $utf8 = New-Object System.Text.UTF8Encoding($false)     # no BOM
 $stamp= (Get-Date -Format 'yyyy-MM-dd.HHmm')
 $note = 'Short line describing the change'

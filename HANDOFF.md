@@ -8,9 +8,14 @@ context you'd otherwise have to rediscover.
 Live: **https://doughboy68.github.io/timesheet/** — build `2026-08-07.1037`, tag `v1.9`
 Beta: **https://doughboy68.github.io/timesheet/beta/** — same code as live right now
 
-Working copy is `D:\Claude\timesheet\timesheet.html`, which becomes `index.html` in the
-repo `https://github.com/Doughboy68/timesheet`. The app is one self-contained HTML file
-plus `sw.js`, a manifest and three icons.
+Two folders:
+
+- `D:\Claude\timesheet` — the working copy, **not a git repo**. Edit `timesheet.html` here.
+- `D:\Claude\timesheet-repo` — the git clone that gets pushed, where it lands as
+  `index.html`. Recreate with
+  `git clone https://github.com/Doughboy68/timesheet.git D:\Claude\timesheet-repo`.
+
+The app is one self-contained HTML file plus `sw.js`, a manifest and three icons.
 
 Brian is a Professional Services tech at MicroAge. He uses this daily on a Windows
 desktop (Edge, installed as an app) and an iPhone (Safari, home screen). It replaced an
