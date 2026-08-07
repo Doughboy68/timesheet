@@ -1929,12 +1929,26 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.1728";
+const BUILD = "2026-08-06.1736";
+
+/* Ask the waiting worker what it is, so the prompt can say what changed. */
+function askVersion(worker){
+  return new Promise(done=>{
+    if(!worker) return done(null);
+    const ch = new MessageChannel();
+    ch.port1.onmessage = e => done(e.data);
+    try{ worker.postMessage("VERSION", [ch.port2]); }catch(e){ done(null); }
+    setTimeout(()=>done(null), 1500);            // older builds won't answer
+  });
+}
 
 function showUpdateBar(reg){
   const bar=$("#updateBar");
   if(bar.style.display==="flex") return;
   bar.style.display="flex";
+  askVersion(reg.waiting || reg.installing).then(v=>{
+    if(v && v.notes) bar.querySelector("span").textContent = "New version: " + v.notes;
+  });
   $("#updateBtn").onclick = ()=>{
     $("#updateBtn").disabled = true;
     $("#updateBtn").textContent = "Reloading…";
