@@ -1418,11 +1418,20 @@ $("#todayBtn").onclick = ()=>goto(todayISO());
 /* Save-as-PDF takes its filename from the page title, so name it for the day
    being printed and put the title back afterwards. */
 let BASE_TITLE = document.title;          // beta relabels this at boot
-function printTitle(){
-  const nm = (day.name||"").trim()
+/* Whose sheet this is, safe to put in a filename. Falls back to the remembered
+   name when the day itself hasn't been named. */
+function personName(){
+  return (day.name || DB.settings.name || "").trim()
     .replace(/[\\/:*?"<>|]/g,"")        // characters a filename can't carry
     .replace(/\s+/g," ");
-  return ["Timesheet", nm, current].filter(Boolean).join(" ");
+}
+function printTitle(){
+  return ["Timesheet", personName(), current].filter(Boolean).join(" ");
+}
+/* e.g. "BRIAN SEMOTIUK day 2026-08-06.json" — says whose it is and whether it
+   covers a day or a week, once it's sitting in Files next to other people's. */
+function exportName(kind, date){
+  return [(personName() || "Timesheet"), kind, date].join(" ") + ".json";
 }
 window.addEventListener("beforeprint", ()=>{ document.title = printTitle(); });
 window.addEventListener("afterprint",  ()=>{ document.title = BASE_TITLE; });
@@ -1624,11 +1633,11 @@ function exportDays(dates, name){
   save(true);
   download(name, JSON.stringify({version:1, partial:true, settings:DB.settings, days}, null, 2), "application/json");
 }
-$("#sendDay").onclick = ()=> exportDays([current], "timesheet-"+current+".json");
+$("#sendDay").onclick = ()=> exportDays([current], exportName("day", current));
 $("#sendWeek").onclick = ()=>{
   const mon=weekStart(current);
   const week=Array.from({length:7},(_,i)=>shiftISO(mon,i));
-  exportDays(week, "timesheet-week-"+mon+".json");
+  exportDays(week, exportName("week", mon));
 };
 
 $("#exportJson").onclick = ()=>{
@@ -1929,7 +1938,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.1739";
+const BUILD = "2026-08-06.2250";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
