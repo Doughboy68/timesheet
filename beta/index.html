@@ -898,7 +898,7 @@ $("#fName").addEventListener("input", preEdit, true);
 function applyState(s){
   day = {date:current, name:s.name, rows:JSON.parse(JSON.stringify(s.rows))};
   DB.days[current]=day;
-  if(!dayUsed(day) && !day.name) delete DB.days[current];
+  if(!dayUsed(day)) delete DB.days[current];   // a name alone is not worth a record
   markDirty(current);
   rowSnap=null;
   save(); render();
@@ -1283,7 +1283,7 @@ function commit(recalc){
   DB.days[current] = day;
   markDirty(current);
   noteChange();
-  if(!dayUsed(day) && !day.name) delete DB.days[current];
+  if(!dayUsed(day)) delete DB.days[current];   // a name alone is not worth a record
   save();
   updateRows();                                          // grow, trim and re-flag the cards
   if(recalc) refreshGrid();                              // cascade, hours, header times
@@ -1672,9 +1672,17 @@ $("#sendWeek").onclick = ()=>{
   exportDays(week, exportName("week", week, mon));   // named after the week's first day
 };
 
+/* A backup of what's actually there — days holding nothing are left out, so a
+   restore isn't a list of empty dates. */
+function backupPayload(){
+  const days={};
+  Object.keys(DB.days).forEach(d=>{ if(dayUsed(DB.days[d])) days[d]=DB.days[d]; });
+  return JSON.stringify({version:1, settings:DB.settings, days}, null, 2);
+}
+
 $("#exportJson").onclick = ()=>{
   save(true);
-  download(exportName("backup", [], todayISO()), JSON.stringify(DB,null,2), "application/json");
+  download(exportName("backup", [], todayISO()), backupPayload(), "application/json");
 };
 /* Start again from nothing — for handing a clean copy to someone else, or
    clearing out test data. Offers the backup first, because this is the only
@@ -1687,7 +1695,7 @@ $("#eraseAll").onclick = async ()=>{
       `Download a backup first?\n\n`+
       `${days} saved day${days>1?"s":""} exist only on this device. `+
       `OK to save a backup now, or Cancel to skip it.`)){
-    await download(exportName("backup", [], todayISO()), JSON.stringify(DB,null,2), "application/json");
+    await download(exportName("backup", [], todayISO()), backupPayload(), "application/json");
     await new Promise(r=>setTimeout(r,600));
   }
 
@@ -1731,6 +1739,14 @@ $("#fileIn").onchange = e=>{
     try{
       const d=JSON.parse(fr.result);
       if(!d || typeof d!=="object" || !d.days) throw new Error("Not a timesheet backup");
+      /* Older files carry day records that hold nothing. Drop them here so
+         they neither clutter the list below nor come back into storage. */
+      Object.keys(d.days).forEach(k=>{ if(!dayUsed(d.days[k])) delete d.days[k]; });
+      if(!Object.keys(d.days).length){
+        alert("That file holds no entries, so there is nothing to restore.\n\n"+
+              "Nothing on this device has been changed.");
+        return;
+      }
       const mine=Object.keys(DB.days).length, dates=Object.keys(d.days).sort();
       /* Show what each date is worth on both sides. A whole day is replaced,
          not merged row by row, so a thin incoming day can wipe a full one. */
@@ -1832,6 +1848,7 @@ function mergeIn(data){
   const incoming = data.days;
   Object.keys(incoming).forEach(d=>{
     if(dirty.has(d)) return;                // edited here since the last sync — keep ours
+    if(!dayUsed(incoming[d])) return;       // empty records from older files aren't worth carrying
     DB.days[d] = incoming[d];
   });
 }
@@ -2017,7 +2034,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.2311";
+const BUILD = "2026-08-06.2318";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
