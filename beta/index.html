@@ -35,7 +35,7 @@
     --line:#d8dbe0; --head:#efeff2; --hover:#f0f1f4; --hover2:#e6e7ec; --zebra:#fafbfc;
     --accent:#c8102e; --accent-dk:#9c0c24;
     --ok:#e8f6ec; --ip:#fff6e0; --wfp:#fdecec;
-    --okink:#1a7f37; --warnink:#a15c00; --errline:#f0b4b4;
+    --okink:#1a7f37; --warnink:#a15c00; --errline:#f0b4b4; --errink:#c8102e;
     --banner:#fff8e6; --bannerline:#f0d18a; --todaybg:#fdeef1;
     --sel:#b9c6f5; --selbg:#fbfcff; --toastbg:#1c1e21;
     --shadow:rgba(0,0,0,.06); --shadow2:rgba(0,0,0,.3);
@@ -45,7 +45,7 @@
     --line:#343a42; --head:#272c33; --hover:#2b3138; --hover2:#333a43; --zebra:#22262c;
     --accent:#e2445c; --accent-dk:#c8102e;   /* lifted, so red reads on a dark panel */
     --ok:#1c3326; --ip:#3a3320; --wfp:#3d2327;
-    --okink:#5cc98a; --warnink:#e0a94a; --errline:#7a3a3a;
+    --okink:#5cc98a; --warnink:#e0a94a; --errline:#7a3a3a; --errink:#ff8a9c;
     --banner:#332c1a; --bannerline:#6b5a2a; --todaybg:#3a1f26;
     --sel:#4a5c8f; --selbg:#242a33; --toastbg:#3a4048;
     --shadow:rgba(0,0,0,.4); --shadow2:rgba(0,0,0,.6);
@@ -100,6 +100,11 @@
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   .btn.primary:hover{background:var(--accent-dk)}
   .btn.danger:hover{background:var(--wfp);border-color:var(--errline)}
+  /* The one action with no undo, sitting next to harmless ones. Red text and
+     border rather than a red block — a filled red is what Print looks like,
+     and the most destructive control shouldn't resemble the most used one. */
+  .btn.grave{color:var(--errink);border-color:var(--errline)}
+  .btn.grave:hover{background:var(--wfp)}
   .row2{display:flex;gap:4px}
   .row2 .btn{margin-bottom:4px}
 
@@ -459,7 +464,7 @@
       <button class="btn" id="exportJson">Backup all data (JSON)</button>
       <button class="btn" id="importJson">Restore from backup…</button>
       <button class="btn danger" id="clearDay">Clear this day</button>
-      <button class="btn danger" id="eraseAll">Erase everything on this device…</button>
+      <button class="btn grave" id="eraseAll">Erase everything on this device…</button>
       <input type="file" id="fileIn" accept=".json,application/json" style="display:none">
     </details>
 
@@ -2045,7 +2050,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.2340";
+const BUILD = "2026-08-06.2346";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
