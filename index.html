@@ -109,31 +109,44 @@
   .row2 .btn{margin-bottom:4px}
 
   #dayList{max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:5px}
-  .monthHead{
+  /* One row per saved week. The days live in the panel below, so this list
+     stays short and there's no expanding. */
+  .weekRow{
     display:flex;align-items:center;gap:6px;padding:6px 8px;cursor:pointer;user-select:none;
-    background:var(--head);border-bottom:1px solid var(--line);font-size:11.5px;font-weight:600;
-    position:sticky;top:0;z-index:1
+    border-bottom:1px solid var(--line);font-size:11.5px
   }
-  .monthHead:hover{background:var(--hover2)}
-  .monthDiv{
-    padding:5px 8px 3px;font-size:10px;text-transform:uppercase;letter-spacing:.07em;
-    color:var(--muted);background:var(--panel);border-bottom:1px solid var(--line)
+  .weekRow:last-child{border-bottom:0}
+  .weekRow:hover{background:var(--hover)}
+  .weekRow.on{background:var(--todaybg);box-shadow:inset 3px 0 0 var(--accent);font-weight:600}
+  .weekRow .mn{flex:1}
+  .weekRow small{color:var(--muted);font-variant-numeric:tabular-nums}
+  /* Year, then month, then week — each folded away until opened, so the list
+     stays the same size whether it holds one month or ten years. */
+  .yearRow,.monthRow{
+    display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;
+    border-bottom:1px solid var(--line)
   }
-  .monthHead .car{color:var(--muted);font-size:10px;width:9px}
-  .monthHead .mn{flex:1}
-  .monthHead small{color:var(--muted);font-variant-numeric:tabular-nums}
-  #dayList .dayItem{padding-left:23px}       /* indented under its month header */
-  .dayItem{display:flex;justify-content:space-between;gap:6px;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer}
-  .dayItem:last-child{border-bottom:0}
-  .dayItem:hover{background:var(--hover)}
-  .dayItem.on{background:var(--todaybg);box-shadow:inset 3px 0 0 var(--accent)}
-  .dayItem small{color:var(--muted)}
+  .yearRow{padding:7px 8px;font-size:12px;font-weight:600;background:var(--head);color:var(--ink)}
+  .monthRow{
+    padding:6px 8px 6px 20px;font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--muted);background:var(--panel)
+  }
+  .yearRow:hover{background:var(--hover2)}
+  .monthRow:hover{background:var(--hover);color:var(--ink)}
+  .yearRow .car,.monthRow .car{font-size:9px;width:9px;color:var(--muted)}
+  .yearRow .mn,.monthRow .mn{flex:1}
+  .yearRow small,.monthRow small{color:var(--muted);font-variant-numeric:tabular-nums}
+  #dayList .weekRow{padding-left:34px}       /* sits under its month */
   .empty{padding:10px;color:var(--muted);text-align:center;font-size:12px}
 
   .wk{width:100%;border-collapse:collapse;font-size:12px}
   .wk td{padding:2px 4px;border-bottom:1px solid var(--line)}
   .wk td:last-child{text-align:right;font-variant-numeric:tabular-nums}
   .wk tr.tot td{font-weight:700;border-top:1px solid var(--line);border-bottom:0}
+  /* Billable closes the task list it sums, set off by a rule rather than weight. */
+  .wk tr.bill td{border-bottom:0;border-top:1px solid var(--line);padding-top:4px;color:var(--ink)}
+  .wk .star{color:var(--accent);margin-left:2px;font-weight:700}
+  .billnote,#billNote{margin-left:8px;font-weight:400;font-size:11px;color:var(--muted)}
   .wk tr.sub td{
     padding-top:9px;border-bottom:0;font-size:10px;text-transform:uppercase;
     letter-spacing:.06em;color:var(--muted)
@@ -164,8 +177,8 @@
   .sheetHead img{width:56px;height:auto}
   .logoSpacer{width:56px}
 
-  /* one line: Name, Date, Work Start, Shop Left. The fields shrink rather
-     than wrap, so Shop Left stays beside Work Start at any width. */
+  /* one line: Name, Date, Work Start, Work End. The fields shrink rather
+     than wrap, so Work End stays beside Work Start at any width. */
   .meta{display:flex;gap:18px;flex-wrap:nowrap;margin-bottom:10px;align-items:flex-end}
   .fld{display:flex;align-items:center;gap:6px;min-width:0}
   .fld label{font-weight:600;font-size:12px;white-space:nowrap;flex:0 0 auto}
@@ -189,6 +202,7 @@
     width:100%;border:0;background:transparent;font:inherit;padding:3px 5px;color:inherit
   }
   table.grid input:focus,table.grid select:focus{outline:2px solid var(--sel);outline-offset:-2px;background:var(--selbg)}
+  .echo{display:none}                        /* printed instead of the input */
   td.tp{padding:0}
   td.tp button{
     width:100%;height:100%;min-height:22px;border:0;background:transparent;
@@ -241,6 +255,13 @@
   }
   .toast.show{opacity:.92}
   .hint{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5}
+  /* The column reference belongs with the other notes, not among the controls:
+     it's read while learning the sheet and rarely afterwards. */
+  .linkish{
+    display:inline;margin-top:2px;padding:0;border:0;background:none;
+    font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer
+  }
+  .linkish:hover{color:var(--accent-dk)}
   .fstat{font-size:11px;line-height:1.45;color:var(--muted);margin-bottom:6px;word-break:break-word}
   .fstat b{color:var(--ink)}
   .fstat.ok{color:var(--okink)} .fstat.warn{color:var(--warnink)} .fstat.err{color:var(--accent)}
@@ -331,6 +352,7 @@
     table.grid tfoot td:first-child{display:none}   /* the TP footnote */
     table.grid tfoot td#total{font-size:17px;min-width:0}
     details.fold>summary{padding:11px 8px;font-size:12px}   /* a proper tap target */
+    .weekRow{padding:11px 8px;font-size:12.5px}             /* likewise */
     #refWrap{padding:0;align-items:flex-end}
     #refPanel{max-height:92vh;border-radius:12px 12px 0 0}
     table.refTbl{font-size:12px}
@@ -353,6 +375,20 @@
     }
     body{background:#fff;color:#000}
     #side,.hint,.toast,.noprint{display:none !important}
+    /* A row with nothing entered still prints as a ruled line, but without the
+       start time the cascade left sitting on it — that time belongs to an entry
+       not yet made, and on paper it just looks unfinished. */
+    table.grid tbody tr.empty select,
+    table.grid tbody tr.empty input{visibility:hidden}
+
+    /* Print the client as text, not as an input: it wraps onto a second line
+       and takes the row's height with it, instead of being cut off. */
+    table.grid td.cl input{display:none}
+    table.grid td.cl .echo{
+      display:block;padding:2px 4px;white-space:normal;overflow-wrap:anywhere;line-height:1.25
+    }
+    table.grid td{height:auto}                    /* let a wrapped row grow */
+
     table.grid tbody tr.fill{display:table-row}   /* pad every printed sheet to PRINT_ROWS */
     table.grid tbody tr.fill td{height:auto;padding:0}
     table.grid tbody tr.fill .ph{display:block;padding:2px 4px}   /* same box as a control */
@@ -379,7 +415,7 @@
     td.tp button{color:#000;text-align:center}
     table.grid select.pinned{box-shadow:none}   /* screen-only marker */
     .fld input,.ro{border-bottom:1px solid #999;background:transparent}
-    /* keep Name, Date, Work Start and Shop Left on one line — the paper is
+    /* keep Name, Date, Work Start and Work End on one line — the paper is
        narrower than the screen, so they were wrapping onto a second row */
     .meta{flex-wrap:nowrap;gap:14px;align-items:flex-end}
     .meta .fld{flex:0 1 auto;min-width:0}
@@ -434,16 +470,15 @@
           </svg>Redo</button>
       </div>
       <button class="btn primary" id="printBtn">Print / PDF</button>
-      <button class="btn" id="refBtn">? What goes in each column</button>
     </div>
 
     <div class="sec">
-      <h4>Saved days</h4>
+      <h4>Saved weeks</h4>
       <div id="dayList"></div>
     </div>
 
     <div class="sec">
-      <h4>This week (Sun&ndash;Sat)</h4>
+      <h4 id="weekHead">Selected week</h4>
       <table class="wk" id="weekTbl"></table>
     </div>
 
@@ -515,7 +550,7 @@
         <div class="fld"><label for="fName">Name:</label><input type="text" id="fName" autocomplete="off"></div>
         <div class="fld"><label for="fDate">Date:</label><input type="date" id="fDate"></div>
         <div class="fld"><label>Work Start Time:</label><span class="ro" id="fStart">—</span></div>
-        <div class="fld"><label>Shop Left Time:</label><span class="ro" id="fEnd">—</span></div>
+        <div class="fld"><label>Work End Time:</label><span class="ro" id="fEnd">—</span></div>
       </div>
 
       <table class="grid">
@@ -539,7 +574,7 @@
         <tfoot>
           <tr>
             <td colspan="5" style="border:0;background:transparent;font-weight:400;font-size:11px">* Time entered in TP</td>
-            <td colspan="2" style="text-align:right">Total:</td>
+            <td colspan="2" style="text-align:right">Total:<span id="billNote"></span></td>
             <td class="n" id="total">0.00</td>
           </tr>
         </tfoot>
@@ -551,7 +586,8 @@
     <p class="hint">
       Start times fill in automatically from the previous row's end time — just enter End times as you go.
       Everything saves as you type. Lunch and Off rows are excluded from the total.<br>
-      Link a data file in the sidebar to keep two computers in sync through OneDrive.
+      Link a data file in the sidebar to keep two computers in sync through OneDrive.<br>
+      <button type="button" class="linkish noprint" id="refLink">What goes in each column</button>
     </p>
   </main>
 </div>
@@ -615,6 +651,9 @@ const LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAAB2CAYAAAAayXtB
 const TASKS   = ["","Onsite","Shop","Remote","Shadow","Project","Meeting","Training","Admin","PD","Lunch","Off"];
 const STATUS  = ["","COMP","IP","WFP"];
 const UNPAID  = ["Lunch","Off"];          // excluded from Hours + Total, as in the workbook
+/* Work that gets billed on. The rest — Shadow, Meeting, Admin, PD — is worked
+   and counts toward the total, it just isn't chargeable. */
+const BILLABLE = ["Onsite","Shop","Remote","Project","Training"];
 const ROWS_MIN = 12;                       // the sheet never shows fewer than this
 const ROWS_SPARE = 1;                      // always this many blank rows below the last entry
 const DEFAULT_START = "08:30";             // what the first row's Start opens on
@@ -853,6 +892,15 @@ function rowHours(r){
 function dayTotal(day){
   return day.rows.reduce((s,r)=> s + (rowHours(r)||0), 0);
 }
+function dayBillable(day){
+  return day.rows.reduce((s,r)=> s + (BILLABLE.includes(r.task) ? (rowHours(r)||0) : 0), 0);
+}
+/* Billable as a share of hours worked. Blank when nothing is on the sheet, so
+   an empty day doesn't announce 0%. */
+function billableNote(worked, billable){
+  if(!worked) return "";
+  return Math.round(billable/worked*100) + "% billable";
+}
 
 /* ---------------- undo / redo ----------------
    Snapshots of the current day. Rapid typing coalesces into one step, so
@@ -928,7 +976,6 @@ function redo(){
 /* ---------------- state ---------------- */
 let current = todayISO();
 let day = getDay(current);
-let openWeeks = new Set([weekStart(current)]);    // payroll weeks expanded in the sidebar list
 
 /* ---------------- rendering ---------------- */
 function render(){
@@ -956,6 +1003,7 @@ function render(){
 
   syncFillers();
   $("#total").textContent = dayTotal(day).toFixed(2);
+  $("#billNote").textContent = billableNote(dayTotal(day), dayBillable(day));
   renderSidebar();
   buildLists();
 }
@@ -967,6 +1015,7 @@ function buildRow(r, i, times, timeKey, isExtra){
     const tr = document.createElement("tr");
     const cls = [UNPAID.includes(r.task) ? "break" : (rowUsed(r) ? "filled" : "")];
     if(r.tp) cls.push("tpOn");
+    if(!rowUsed(r)) cls.push("empty");
     if(rowBackwards(r)) cls.push("bad");
     if(isExtra) cls.push("extra");
     tr.className = cls.join(" ");
@@ -981,6 +1030,8 @@ function buildRow(r, i, times, timeKey, isExtra){
             r.client=c;
             const inp=tr.children[5].querySelector("input");   // update in place…
             if(inp) inp.value=c;
+            const echo=tr.children[5].querySelector(".echo");
+            if(echo) echo.textContent=c;
           }
         }
         tr.classList.toggle("filled", rowUsed(r));
@@ -1041,7 +1092,17 @@ function buildRow(r, i, times, timeKey, isExtra){
       commit(true);
     }, null, "tasks"), "Task"));
 
-    tr.appendChild(cell(inputEl(r.client, "dlClient", v=>{ r.client=v; commit(); }), "CL/DES"));
+    /* An <input> clips rather than wraps, so a long client name is cut off on
+       paper. Keep a copy of the text beside it that prints instead and can run
+       to a second line, growing the row. */
+    const clientEcho = document.createElement("span");
+    clientEcho.className = "echo";
+    clientEcho.textContent = r.client || "";
+    const clientTd = cell(inputEl(r.client, "dlClient",
+      v=>{ r.client=v; clientEcho.textContent=v; commit(); }), "CL/DES");
+    clientTd.classList.add("cl");
+    clientTd.appendChild(clientEcho);
+    tr.appendChild(clientTd);
 
     const st = selectEl(STATUS, r.status, v=>{ r.status=v; commit(true); }, null, "status");
     st.className = "st-"+(r.status||"none");
@@ -1093,6 +1154,7 @@ function refreshRowFlags(){
     tr.classList.toggle("filled", used && !unpaid);
     tr.classList.toggle("tpOn", !!r.tp);
     tr.classList.toggle("bad", rowBackwards(r));
+    tr.classList.toggle("empty", !used);
     tr.classList.toggle("extra", !used && blankSeen);
     if(!used) blankSeen=true;
   });
@@ -1174,6 +1236,8 @@ function refreshGrid(){
 
     const clientInp = tr.children[5].querySelector("input");
     if(clientInp && clientInp!==active && clientInp.value!==(r.client||"")) clientInp.value = r.client||"";
+    const clientEcho = tr.children[5].querySelector(".echo");   // the copy that prints
+    if(clientEcho) clientEcho.textContent = r.client || "";
 
     const tpBtn = tr.children[1].querySelector("button");
     if(tpBtn){                                   // keep it right after undo, import, day change
@@ -1304,6 +1368,7 @@ function commit(recalc){
   updateRows();                                          // grow, trim and re-flag the cards
   if(recalc) refreshGrid();                              // cascade, hours, header times
   $("#total").textContent = dayTotal(day).toFixed(2);
+  $("#billNote").textContent = billableNote(dayTotal(day), dayBillable(day));
   renderSidebar();
 }
 
@@ -1333,45 +1398,71 @@ function renderSidebar(){
   // saved days
   const list=$("#dayList");
   const dates=Object.keys(DB.days).filter(d=>dayUsed(DB.days[d])).sort().reverse();
-  if(!dates.length){ list.innerHTML='<div class="empty">No saved days yet</div>'; }
+  if(!dates.length){ list.innerHTML='<div class="empty">Nothing saved yet</div>'; }
   else{
     list.innerHTML="";
-    /* grouped by payroll week (Sun–Sat), newest first, with a month divider
-       whenever the month changes — keeps the list short however many days pile up */
+    /* Weeks only — the panel below lists the days of whichever week is
+       selected, so nothing is shown in both places. Payroll weeks, newest
+       first, with a month divider when the month changes. */
     const order=[], byWeek={};
     dates.forEach(d=>{ const w=weekStart(d); if(!byWeek[w]){ byWeek[w]=[]; order.push(w); } byWeek[w].push(d); });
-    let lastMonth=null;
+    const here = weekStart(current);
+    const weekTotal = w => byWeek[w].reduce((s,d)=>s+dayTotal(DB.days[d]),0);
+
+    /* Months are folded away by default. Almost all work is on today, reached
+       by Prev/Next, so this list is for the occasional trip back and shouldn't
+       grow down the sidebar as the year does. What you open is remembered. */
+    const openY = DB.settings.openYears  || (DB.settings.openYears  = {});
+    const openM = DB.settings.openMonths || (DB.settings.openMonths = {});
+    const monthTotal = {}, yearTotal = {};
     order.forEach(w=>{
-      const m=w.slice(0,7);
+      const m=w.slice(0,7), y=w.slice(0,4), t=weekTotal(w);
+      monthTotal[m]=(monthTotal[m]||0)+t;
+      yearTotal[y] =(yearTotal[y] ||0)+t;
+    });
+
+    let lastYear=null, lastMonth=null;
+    order.forEach(w=>{
+      const y=w.slice(0,4), m=w.slice(0,7);
+      if(y!==lastYear){
+        lastYear=y; lastMonth=null;
+        const open=!!openY[y];
+        const yd=document.createElement("div");
+        yd.className="yearRow"+(open?" open":"");
+        yd.innerHTML=`<span class="car">${open?"&#9662;":"&#9656;"}</span>`+
+                     `<span class="mn">${y}</span>`+
+                     `<small>${yearTotal[y].toFixed(2)}</small>`;
+        yd.onclick=()=>{ openY[y]=!open; save(); renderSidebar(); };
+        list.appendChild(yd);
+      }
+      if(!openY[y]) return;                       // year folded: nothing below it shows
+
       if(m!==lastMonth){
         lastMonth=m;
+        const open=!!openM[m];
         const md=document.createElement("div");
-        md.className="monthDiv"; md.textContent=monthLabel(m);
+        md.className="monthRow"+(open?" open":"");
+        md.innerHTML=`<span class="car">${open?"&#9662;":"&#9656;"}</span>`+
+                     `<span class="mn">${monthLabel(m).replace(" "+y,"")}</span>`+
+                     `<small>${monthTotal[m].toFixed(2)}</small>`;
+        md.onclick=()=>{ openM[m]=!open; save(); renderSidebar(); };
         list.appendChild(md);
       }
-      const open = openWeeks.has(w);
-      const tot = byWeek[w].reduce((s,d)=>s+dayTotal(DB.days[d]),0);
+      if(!openM[m]) return;                       // month folded: weeks stay hidden
+
+      const n = byWeek[w].length;
       const h=document.createElement("div");
-      h.className="monthHead"+(open?" open":"");
-      h.innerHTML=`<span class="car">${open?"&#9662;":"&#9656;"}</span>`+
-                  `<span class="mn">${weekLabel(w)}</span>`+
-                  `<small>${tot.toFixed(2)}</small>`;
-      h.title=`Week of ${longDate(w)} — ${byWeek[w].length} day${byWeek[w].length>1?"s":""}`;
-      h.onclick=()=>{ open ? openWeeks.delete(w) : openWeeks.add(w); renderSidebar(); };
+      h.className="weekRow"+(w===here?" on":"");
+      h.innerHTML=`<span class="mn">${weekLabel(w)}</span><small>${weekTotal(w).toFixed(2)}</small>`;
+      h.title=`${n} day${n>1?"s":""} with entries — click to open this week`;
+      h.onclick=()=>goto(byWeek[w].slice().sort()[0]);   // its earliest day with entries
       list.appendChild(h);
-      if(!open) return;
-      byWeek[w].slice().sort().forEach(d=>{      // Sun->Sat, matching the week panel below
-        const div=document.createElement("div");
-        div.className="dayItem"+(d===current?" on":"");
-        div.innerHTML=`<span>${shortDate(d)}</span><small>${dayTotal(DB.days[d]).toFixed(2)}</small>`;
-        div.onclick=()=>goto(d);
-        list.appendChild(div);
-      });
     });
   }
 
   // week
   const mon=weekStart(current);
+  $("#weekHead").textContent = "Week of " + weekLabel(mon);   // names the week it shows
   let wk="", wtot=0;
   const byTask={};
   for(let i=0;i<7;i++){
@@ -1401,9 +1492,19 @@ function renderSidebar(){
          .slice(0, Math.max(0,short))
          .forEach(x=> pcts[x.idx]++);
     wk+=keys.map((k,idx)=>
-      `<tr class="task"><td>${k}</td>`+
+      `<tr class="task"><td>${k}${BILLABLE.includes(k)?'<span class="star">*</span>':''}</td>`+
       `<td><span class="hrs">${byTask[k].toFixed(2)}</span>`+
       `<span class="pct">${pcts[idx]}%</span></td></tr>`).join("");
+  }
+
+  /* Billable last, under the tasks it's the sum of, sharing their asterisk so
+     it's clear which lines it adds up. */
+  if(wtot){
+    const wbill = Array.from({length:7},(_,i)=>DB.days[shiftISO(mon,i)])
+                       .reduce((s,d)=> s + (d ? dayBillable(d) : 0), 0);
+    wk+=`<tr class="bill"><td>Billable<span class="star">*</span></td>`+
+        `<td><span class="hrs">${wbill.toFixed(2)}</span>`+
+        `<span class="pct">${Math.round(wbill/wtot*100)}%</span></td></tr>`;
   }
   $("#weekTbl").innerHTML=wk;
   $("#weekTbl").querySelectorAll("tr[data-d]").forEach(tr=> tr.onclick=()=>goto(tr.dataset.d));
@@ -1426,7 +1527,6 @@ function weekStart(iso){                      // Sunday — payroll week runs Su
 function goto(date){
   save(true);
   current=date;
-  openWeeks.add(weekStart(date));            // keep the week you jump to expanded
   rowSnap=null;                              // snapshots don't carry across days
   day=getDay(date);
   undoReset();                               // undo history is per day
@@ -1613,8 +1713,8 @@ function ref(show){
   $("#refWrap").hidden = !show;
   if(show){ nav(false); $("#refClose").focus(); }
 }
-$("#refBtn").onclick = ()=>ref(true);
-$("#refBtn2").onclick = ()=>ref(true);
+$("#refLink").onclick = ()=>ref(true);      // under the sheet, with the other notes
+$("#refBtn2").onclick = ()=>ref(true);      // and the ? in the phone's top bar
 $("#refClose").onclick = ()=>ref(false);
 $("#refWrap").onclick = e=>{ if(e.target.id==="refWrap") ref(false); };   // click the backdrop
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") ref(false); });
@@ -1625,7 +1725,7 @@ $("#menuBtn").onclick = ()=> nav(!document.body.classList.contains("nav"));
 $("#scrim").onclick = ()=> nav(false);
 $("#printBtn2").onclick = ()=>{ nav(false); doPrint(); };
 $("#side").addEventListener("click", e=>{        // close after picking a day or an action
-  if(e.target.closest(".dayItem,.btn,.wk tr[data-d]")) nav(false);
+  if(e.target.closest(".weekRow,.btn,.wk tr[data-d]")) nav(false);
 });
 $("#undoBtn").onclick = ()=>undo();
 $("#redoBtn").onclick = ()=>redo();
@@ -1732,7 +1832,6 @@ $("#eraseAll").onclick = async ()=>{
   DB = {version:1, settings:{name:"", allHours:false}, days:{}};
   current = todayISO();
   day = getDay(current);
-  openWeeks = new Set([weekStart(current)]);
   rowSnap = null;
   optCache.clear();                       // option lists depend on the settings
   undoReset();
@@ -2050,7 +2149,7 @@ async function initFileLink(){
 /* ---------------- offline + updates ----------------
    The worker caches the app so it opens without a signal. A new build waits
    rather than taking over mid-edit; the bar below is how you accept it. */
-const BUILD = "2026-08-06.2350";
+const BUILD = "2026-08-07.1030";
 
 /* Ask the waiting worker what it is, so the prompt can say what changed. */
 function askVersion(worker){
